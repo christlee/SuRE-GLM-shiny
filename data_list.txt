@@ -1,0 +1,5 @@
+***REMOVED***SuRE/hg19ToHg38.over.chain
+***REMOVED***SuRE/hg38ToHg19.over.chain
+***REMOVED***SuRE/optimalFitOffsetCoefficients_K562_spatial.rds
+***REMOVED***SuRE/promoter_triangle_input.RData
+***REMOVED***SuRE/SuRE_elasticNet_peaks_K562.bed
