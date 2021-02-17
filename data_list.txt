@@ -1,0 +1,5 @@
+https://rhpc.nki.nl/lovelace/c.leemans/SuRE/hg19ToHg38.over.chain
+https://rhpc.nki.nl/lovelace/c.leemans/SuRE/hg38ToHg19.over.chain
+https://rhpc.nki.nl/lovelace/c.leemans/SuRE/optimalFitOffsetCoefficients_K562_spatial.rds
+https://rhpc.nki.nl/lovelace/c.leemans/SuRE/promoter_triangle_input.RData
+https://rhpc.nki.nl/lovelace/c.leemans/SuRE/SuRE_elasticNet_peaks_K562.bed
