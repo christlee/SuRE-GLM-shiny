@@ -42,6 +42,8 @@ transcript_dt = data.table(ensembl_tid = gsub('[.]*', '', names(tss_gr)),
                            stringsAsFactors=F)
 
 
-lookup_list = list('symbol'=symbol_dt, 'ensembl_gene'=ensembl_dt,
-                   'ensembl_transcript'=transcript_dt, 'gencode'=gencode_dt)
+# lookup_list = list('symbol'=symbol_dt, 'ensembl_gene'=ensembl_dt,
+#                    'ensembl_transcript'=transcript_dt, 'gencode'=gencode_dt)
+
+lookup_list = list('symbol'=symbol_dt)
 save(lookup_list, tss_gr, file=rd_file)
