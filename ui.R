@@ -62,14 +62,13 @@ shinyUI(
 
           h3("sense orientation"),
           plotOutput(outputId = "trianglePlot", click="plot_click", width=800, height=300),
-          plotOutput(outputId = "peakPlot", click="plot_click_peak", width=800, height=100),
+          # plotOutput(outputId = "peakPlot", click="plot_click_peak", width=800, height=100),
           plotOutput(outputId = "flatPlot", brush="plot_brush", width=800, height=200),
           htmlOutput(outputId = "jbrowse", width=800, height=200),
           h3("anti-sense orientation"),
           plotOutput(outputId = "trianglePlot_rev", click="plot_click", width=800, height=300),
-          plotOutput(outputId = "peakPlot_rev", click="plot_click_peak", width=800, height=100),
+          # plotOutput(outputId = "peakPlot_rev", click="plot_click_peak", width=800, height=100),
           plotOutput(outputId = "flatPlot_rev", brush="plot_brush", width=800, height=200),
-          # plotOutput(outputId = "trianglePlot2", click="plot_click", width=800, height=800),
         ),
         column(1,
           plotOutput(outputId = "legend", width=50, height=100)

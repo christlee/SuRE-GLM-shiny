@@ -1,13 +1,12 @@
-library(GenomicRanges)
 library(rtracklayer)
 library(data.table)
-library(GenomicFeatures)
 library(shiny)
 library(AnnotationDbi)
 library(ggplot2)
 library(cowplot)
 library(grid)
 library(stringr)
+library(here)
 
 
 peak_file  = c('K562' = 'data/SuRE_elasticNet_peaks_K562.bed',
@@ -83,7 +82,6 @@ triangle_dt <- function(center, upstream = 1000, downstream=1000,
         strand <- ifelse(as.character(strand(center)) == "+", "minus", "plus")
     }
     file <- paste0(path, filePart, strand, ".bw")
-    glm = import.bw(file)
     suppressWarnings(glm <- import(file, selection = BigWigSelection(region),
                                    as = "NumericList")[[1]] + offset)
 
@@ -116,7 +114,6 @@ triangle_dt <- function(center, upstream = 1000, downstream=1000,
     glm_vec = vector('numeric', length=length(i))
 
     for(n in 1:length(i)){
-        print(i_list[[n]])
         glm_vec[n] = sum(glm[i_list[[n]]])
         mat[1:n,n:length(i)] <- mat[1:n,n:length(i)] + sum(glm[i_list[[n]]])
         mat[n,1:(n-1)] <- NA
@@ -215,7 +212,8 @@ liftOver <- function(region, toHg19=TRUE){
     region_str = paste(region, collapse='\t')
 
     cmd = paste0('printf "', region_str, '" | ', "liftOver",
-                 " /dev/stdin ", chain, " /dev/stdout ", tempfile())
+                 " /dev/stdin ", here(chain), " /dev/stdout ", tempfile())
+    print(cmd)
     lift_str = system(cmd, intern=T, ignore.stderr=T)
     lift_vec = strsplit(lift_str, '\t')[[1]]
     return(lift_vec)
@@ -329,6 +327,7 @@ shinyServer(function(input, output, session) {
 
     updateVals <- function(x=NA, y=NA, start=NA, end=NA, region=NA){
         strand = ifelse(strand(vals$center)=='+', 1, -1)
+
         if (!is.na(region)){
             start = as.numeric(region[2]) - start(vals$center) * strand
             end = as.numeric(region[3]) - start(vals$center) * strand
@@ -337,6 +336,8 @@ shinyServer(function(input, output, session) {
             x = (start + end) / 2
             y = end - start
         } else{
+            print(x)
+            print(y)
             start = x - round(y/2)
             end = x + round(y/2)
         }
@@ -349,7 +350,7 @@ shinyServer(function(input, output, session) {
         vals$y = y
         vals$start = start
         vals$end = end
-
+        print(vals)
         vals$region = region
     }
 
@@ -361,6 +362,7 @@ shinyServer(function(input, output, session) {
     }
 
     observeEvent(input$plot_click, {
+        print('click!')
         x = round(input$plot_click$x)
         y = round(input$plot_click$y)
         updateVals(x=x, y=y)
@@ -373,14 +375,14 @@ shinyServer(function(input, output, session) {
         # vals$score_rev = input_list$flat_dt_rev[x%in%start:end, sum(score)]
     })
 
-    observeEvent(input$plot_click_peak, {
-        input_list = dataInput()
-        nearPoints(input_list$peak_fwd, input$plot_click_peak)
-    })
+    # observeEvent(input$plot_click_peak, {
+    #     input_list = dataInput()
+    #     nearPoints(input_list$peak_fwd, input$plot_click_peak)
+    # })
 
     observeEvent(input$plot_brush, {
-        xmin = input$plot_brush$xmin
-        xmax = input$plot_brush$xmax
+        xmin = round(input$plot_brush$xmin)
+        xmax = round(input$plot_brush$xmax)
 
         left = input$plot_brush$domain$left
         right = input$plot_brush$domain$right
@@ -432,7 +434,7 @@ shinyServer(function(input, output, session) {
                               inherit.aes=F)
         }
         gt <- ggplot_gtable(ggplot_build(p))
-        p + theme(legend.position="none")
+        plot(p + theme(legend.position="none"))
     })
 
     output$trianglePlot_rev <- renderPlot({
@@ -485,37 +487,37 @@ shinyServer(function(input, output, session) {
         gt2$widths[1:6] <- input_list$gt_widths
         grid.draw(gt2)
     })
-
-    output$peakPlot <- renderPlot({
-        input_list = dataInput()
-        strand = strand(input_list$center)
-        sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
-        peak_dt = input_list$peak_fwd
-        print(peak_dt)
-        if (nrow(peak_dt) > 0){
-            p2 = ggplot(peak_dt, aes(x=x_rel, y=factor(group),
-                                     color=exp(score))) +
-              geom_line(size=3) +
-              scale_color_gradientn(colours=colorlut,
-                                    limits=c(0, exp(input_list$max_color))) +
-              theme_bw() +
-              xlab('peaks') +
-              coord_cartesian(input$window) +
-              scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0)) +
-              scale_y_discrete(breaks=NULL) +
-              theme(axis.title.y=element_blank(),
-                    legend.position="none")
-            if (!is.na(vals$x)){
-              p2 = p2 + geom_vline(xintercept=vals$start) +
-                geom_vline(xintercept=vals$end)
-            }
-            gt2 <- ggplot_gtable(ggplot_build(p2))
-            gt2$widths[1:6] <- input_list$gt_widths
-        } else {
-            gt2 = 0
-        }
-        plot(gt2)
-    })
+    #
+    # output$peakPlot <- renderPlot({
+    #     input_list = dataInput()
+    #     strand = strand(input_list$center)
+    #     sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
+    #     peak_dt = input_list$peak_fwd
+    #     print(peak_dt)
+    #     if (nrow(peak_dt) > 0){
+    #         p2 = ggplot(peak_dt, aes(x=x_rel, y=factor(group),
+    #                                  color=exp(score))) +
+    #           geom_line(size=3) +
+    #           scale_color_gradientn(colours=colorlut,
+    #                                 limits=c(0, exp(input_list$max_color))) +
+    #           theme_bw() +
+    #           xlab('peaks') +
+    #           coord_cartesian(input$window) +
+    #           scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0)) +
+    #           scale_y_discrete(breaks=NULL) +
+    #           theme(axis.title.y=element_blank(),
+    #                 legend.position="none")
+    #         if (!is.na(vals$x)){
+    #           p2 = p2 + geom_vline(xintercept=vals$start) +
+    #             geom_vline(xintercept=vals$end)
+    #         }
+    #         gt2 <- ggplot_gtable(ggplot_build(p2))
+    #         gt2$widths[1:6] <- input_list$gt_widths
+    #     } else {
+    #         gt2 = 0
+    #     }
+    #     plot(gt2)
+    # })
 
     output$flatPlot_rev <- renderPlot({
         input_list = dataInput()
@@ -538,38 +540,38 @@ shinyServer(function(input, output, session) {
         gt2$widths[1:6] <- input_list$gt_widths
         plot(gt2)
     })
-
-    output$peakPlot_rev <- renderPlot({
-        input_list = dataInput()
-        strand = strand(input_list$center)
-        sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
-        peak_dt = input_list$peak_rev
-        print(peak_dt$score)
-        print(peak_dt[,exp(score)])
-        if (nrow(peak_dt) > 0){
-            p2 = ggplot(peak_dt, aes(x=x_rel, y=factor(group),
-                                     color=exp(score))) +
-              geom_line(size=3) +
-              scale_color_gradientn(colours=colorlut,
-                                    limits=c(0, exp(input_list$max_color))) +
-              theme_bw() +
-              xlab('peaks') +
-              coord_cartesian(input$window) +
-              scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0)) +
-              scale_y_discrete(breaks=NULL) +
-              theme(axis.title.y=element_blank(),
-                    legend.position="none")
-            if (!is.na(vals$x)){
-              p2 = p2 + geom_vline(xintercept=vals$start) +
-                geom_vline(xintercept=vals$end)
-            }
-            gt2 <- ggplot_gtable(ggplot_build(p2))
-            gt2$widths[1:6] <- input_list$gt_widths
-        } else {
-            gt2 = 0
-        }
-        plot(gt2)
-    })
+    #
+    # output$peakPlot_rev <- renderPlot({
+    #     input_list = dataInput()
+    #     strand = strand(input_list$center)
+    #     sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
+    #     peak_dt = input_list$peak_rev
+    #     print(peak_dt$score)
+    #     print(peak_dt[,exp(score)])
+    #     if (nrow(peak_dt) > 0){
+    #         p2 = ggplot(peak_dt, aes(x=x_rel, y=factor(group),
+    #                                  color=exp(score))) +
+    #           geom_line(size=3) +
+    #           scale_color_gradientn(colours=colorlut,
+    #                                 limits=c(0, exp(input_list$max_color))) +
+    #           theme_bw() +
+    #           xlab('peaks') +
+    #           coord_cartesian(input$window) +
+    #           scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0)) +
+    #           scale_y_discrete(breaks=NULL) +
+    #           theme(axis.title.y=element_blank(),
+    #                 legend.position="none")
+    #         if (!is.na(vals$x)){
+    #           p2 = p2 + geom_vline(xintercept=vals$start) +
+    #             geom_vline(xintercept=vals$end)
+    #         }
+    #         gt2 <- ggplot_gtable(ggplot_build(p2))
+    #         gt2$widths[1:6] <- input_list$gt_widths
+    #     } else {
+    #         gt2 = 0
+    #     }
+    #     plot(gt2)
+    # })
 
 
     output$selection <- renderTable({
