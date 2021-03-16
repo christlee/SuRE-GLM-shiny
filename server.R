@@ -7,12 +7,13 @@ library(cowplot)
 library(grid)
 library(stringr)
 library(here)
-
+library(DT)
+library(shinyjs)
 
 peak_file  = c('K562' = 'data/SuRE_elasticNet_peaks_K562.bed',
                'HEPG2' = 'data/SuRE_elasticNet_peaks_K562.bed')
 
-rd_file = 'data/promoter_triangle_input.RData'
+rds_file = 'data/promoter_triangle_input.RDS'
 
 offset_coefs = readRDS("data/optimalFitOffsetCoefficients_K562_spatial.rds")
 
@@ -27,7 +28,11 @@ hg38ToHg19 = "data/hg38ToHg19.over.chain"
 hg19ToHg38 = "data/hg19ToHg38.over.chain"
 
 
-load(rd_file)
+rds_list = readRDS(rds_file)
+lookup_list = rds_list$lookup_list
+tss_gr = rds_list$tss_gr
+
+
 
 get_center <- function(text_input, lookup_list, tss_gr){
   match_list = list(ensembl_transcript='^ENST[0-9]+$',
@@ -229,6 +234,9 @@ get_peaks <- function(region, peak_file){
     return(fread(cmd=cmd, col.names=c('seqnames', 'start', 'end', 'name',
                                       'score', 'strand')))
 }
+
+
+
 
 
 shinyServer(function(input, output, session) {
@@ -637,5 +645,107 @@ shinyServer(function(input, output, session) {
                                onload="vertical_scrollbar.scrollTo(0,0);")
         my_test
     })
+
+
+    fragmentInput <- observeEvent(input$fragment_file,{
+        upload = paste(readLines(input$fragment_file$datapath), collapse="\n")
+        updateTextAreaInput(session, "text_fragments", value = upload)
+    })
+
+    fragmentInput <- eventReactive(input$go_fragments, {
+        width_offset = offset_coefs$width[[1]]
+
+        frag_dt = fread(input$text_fragments, stringsAsFactors=F,
+                        fill=T, header=F, sep='\t',
+                        sep2=' ')
+        print(frag_dt)
+        colnames(frag_dt) = c('seqnames', 'start', 'end',
+                              'name', 'color', 'strand')[1:ncol(frag_dt)]
+        frag_dt[,strand:=ifelse(strand%in%c('+','-'), strand, "*")]
+        print(frag_dt)
+        hg19_dt = copy(frag_dt)
+        if (input$hg_version=='hg38'){
+           suppressWarnings(hg19_dt[, c('seqnames', 'start', 'end') :=
+                                      as.list(liftOver(c(seqnames, start, end))),
+                                    by=eval(colnames(frag_dt))])
+        }
+
+        frag_gr = makeGRangesFromDataFrame(hg19_dt)
+
+        track_names = c('K562_plus', 'K562_minus', 'HEPG2_plus',
+                        'HEPG2_plus')
+
+        score_list = lapply(track_names, function(track){
+            file = paste0('data/',
+                          'SURE_elasticNet_allele_',
+                          track, '.bw')
+            glm <- import(file, selection = BigWigSelection(frag_gr),
+                          as="NumericList")
+            score = lapply(glm, function(x){exp(sum(x + width_offset))})
+            return(unlist(score))
+        })
+        score_dt = as.data.table(do.call(cbind, score_list))
+        colnames(score_dt) = track_names
+
+        use_strand <- function(score_dt, strand){
+          if (strand=="+"){
+            dt = score_dt
+            colnames(dt) = gsub("_plus", "_sense", colnames(dt))
+            colnames(dt) = gsub("_minus", "_antisense", colnames(dt))
+          } else if (strand=="-"){
+            dt = score_dt
+            colnames(dt) = gsub("_minus", "_sense", colnames(dt))
+            colnames(dt) = gsub("_plus", "_antisense", colnames(dt))
+            i_vec = unlist(lapply(1:(ncol(dt)/2), function(x){x* 2:1}))
+            dt = dt[,i_vec,with=F]
+          } else {
+            dt = score_dt
+          }
+          return(dt)
+        }
+
+        score_dt[,strand:=as.character(strand(frag_gr))]
+        if ("strand" %in% colnames(frag_dt)){
+          score_dt = score_dt[,use_strand(.SD, strand), by="strand"]
+        }
+        result = cbind(frag_dt, score_dt[,-"strand"])
+
+        return(result)
+    })
+
+    output$download <- renderUI({
+        if (input$go_fragments!=0){
+          fluidRow(
+            downloadButton("download_csv", "Download as csv"),
+            downloadButton("download_tsv", "Download as tsv")
+          )
+        }
+    })
+
+    output$fragment_result <- renderDataTable({
+
+        return(fragmentInput())
+    })
+
+    output$download_csv <- downloadHandler(
+      filename = function() {
+        paste("SuRE-GLM_predictions-", Sys.Date(), ".csv", sep="")
+      },
+      content = function(file) {
+        fwrite(fragmentInput(), file, sep=',')
+      }
+    )
+
+    output$download_tsv <- downloadHandler(
+      filename = function() {
+        paste("SuRE-GLM_predictions-", Sys.Date(), ".tsv", sep="")
+      },
+      content = function(file) {
+        fwrite(fragmentInput(), file, sep='\t')
+      }
+    )
 })
+
+
+
 # shinyApp(ui = ui, server = server, options = list(display.mode="showcase"))

@@ -6,7 +6,7 @@ library(AnnotationDbi)
 library(stringr)
 
 gff_file = '/DATA/scratch/usr/c.leemans/data/tracks/hg19/gencode.v27lift37.annotation.gff3.gz'
-rd_file = '/DATA/scratch/usr/c.leemans/projects/SuRE/SuRE_K562/promoter_triangle_input.RData'
+rds_file = '/DATA/scratch/usr/c.leemans/projects/SuRE/SuRE_K562/promoter_triangle_input.RDS'
 
 fantom_file = paste0('/DATA/scratch/usr/c.leemans/projects/SuRE/tss_selection_gene_name.txt')
 chrom_vec = paste0('chr', c(1:22, 'X', 'Y'))
@@ -42,8 +42,8 @@ transcript_dt = data.table(ensembl_tid = gsub('[.]*', '', names(tss_gr)),
                            stringsAsFactors=F)
 
 
-# lookup_list = list('symbol'=symbol_dt, 'ensembl_gene'=ensembl_dt,
-#                    'ensembl_transcript'=transcript_dt, 'gencode'=gencode_dt)
+lookup_list = list('symbol'=symbol_dt, 'ensembl_gene'=ensembl_dt,
+                   'ensembl_transcript'=transcript_dt, 'gencode'=gencode_dt)
 
-lookup_list = list('symbol'=symbol_dt)
-save(lookup_list, tss_gr, file=rd_file)
+# lookup_list = list('symbol'=symbol_dt)
+saveRDS(list(lookup_list=lookup_list, tss_gr=tss_gr), file=rds_file)
