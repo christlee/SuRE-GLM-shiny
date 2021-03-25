@@ -13,7 +13,10 @@ gff_file = '***REMOVED***data/tracks/hg19/gencode.v27lift37.annotation.gff3.gz'
 peak_file  = c('K562' = '***REMOVED***data/tracks/hg19/SuRE_elasticNet_peaks_K562.bed',
                'HEPG2' = '***REMOVED***data/tracks/hg19/SuRE_elasticNet_peaks_K562.bed')
 txdb_file = '***REMOVED***projects/SuRE/SuRE_K562/txdb.gencode.v27lift37.sqlite'
-rd_file = '***REMOVED***projects/SuRE/SuRE_K562/promoter_triangle_input.RData'
+
+tss_file = '***REMOVED***projects/SuRE/SuRE_K562/tss_matrix.txt.gz'
+lookup_matrix = '***REMOVED***projects/SuRE/SuRE_K562/lookup_matrix.txt.gz'
+
 offset_coefs = readRDS("***REMOVED***projects/SuRE/SuRE_K562/bins_vince/optimalFitOffsetCoefficients_K562_spatial.rds")
 chrom_vec = paste0('chr', c(1:22, 'X', 'Y'))
 
@@ -26,6 +29,31 @@ jtrack_start = paste("tracks=gencode.v27lift37",
 
 hg38ToHg19 = "***REMOVED***data/hg38ToHg19.over.chain"
 hg19ToHg38 = "***REMOVED***data/hg19ToHg38.over.chain"
+
+
+tss_gr = makeGRangesFromDataFrame(fread(cmd=paste("zcat", tss_file)))
+names(tss_gr) = tss_gr$tx_name
+
+lookup_dt = fread(cmd=paste("zcat", lookup_matrix))
+
+
+ensembl_dt = lookup_dt[,list(ensembl_id = gsub('[.]*', '', gene_id),
+                             transcript_id)]
+setkey(ensembl_dt, 'ensembl_id')
+
+gencode_dt = lookup_dt[, c('gene_id', 'transcript_id')]
+setkey(gencode_dt, 'gene_id')
+
+symbol_dt = lookup_dt[, c('gene_name', 'transcript_id')]
+setkey(symbol_dt, 'gene_name')
+
+transcript_dt = data.table(ensembl_tid = gsub('[.]*', '', names(tss_gr)),
+                           transcript_id = names(tss_gr), key='ensembl_tid',
+                           stringsAsFactors=F)
+
+
+lookup_list = list('symbol'=symbol_dt, 'ensembl_gene'=ensembl_dt,
+                   'ensembl_transcript'=transcript_dt, 'gencode'=gencode_dt)
 
 
 if (!file.exists(txdb_file)){
