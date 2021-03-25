@@ -13,7 +13,9 @@ library(shinyjs)
 peak_file  = c('K562' = 'data/SuRE_elasticNet_peaks_K562.bed',
                'HEPG2' = 'data/SuRE_elasticNet_peaks_K562.bed')
 
-rds_file = 'data/promoter_triangle_input.RDS'
+tss_file = 'data/tss_matrix.txt.gz'
+lookup_matrix = 'data/lookup_matrix.txt.gz'
+
 
 offset_coefs = readRDS("data/optimalFitOffsetCoefficients_K562_spatial.rds")
 
@@ -28,10 +30,29 @@ hg38ToHg19 = "data/hg38ToHg19.over.chain"
 hg19ToHg38 = "data/hg19ToHg38.over.chain"
 
 
-rds_list = readRDS(rds_file)
-lookup_list = rds_list$lookup_list
-tss_gr = rds_list$tss_gr
+tss_gr = makeGRangesFromDataFrame(fread(cmd=paste("zcat", tss_file)))
+names(tss_gr) = tss_gr$tx_name
 
+lookup_dt = fread(cmd=paste("zcat", lookup_matrix))
+
+
+ensembl_dt = lookup_dt[,list(ensembl_id = gsub('[.]*', '', gene_id),
+                             transcript_id)]
+setkey(ensembl_dt, 'ensembl_id')
+
+gencode_dt = lookup_dt[, c('gene_id', 'transcript_id')]
+setkey(gencode_dt, 'gene_id')
+
+symbol_dt = lookup_dt[, c('gene_name', 'transcript_id')]
+setkey(symbol_dt, 'gene_name')
+
+transcript_dt = data.table(ensembl_tid = gsub('[.]*', '', names(tss_gr)),
+                           transcript_id = names(tss_gr), key='ensembl_tid',
+                           stringsAsFactors=F)
+
+
+lookup_list = list('symbol'=symbol_dt, 'ensembl_gene'=ensembl_dt,
+                   'ensembl_transcript'=transcript_dt, 'gencode'=gencode_dt)
 
 
 get_center <- function(text_input, lookup_list, tss_gr){
