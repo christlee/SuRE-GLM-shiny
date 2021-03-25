@@ -30,7 +30,8 @@ hg38ToHg19 = "data/hg38ToHg19.over.chain"
 hg19ToHg38 = "data/hg19ToHg38.over.chain"
 
 
-tss_gr = makeGRangesFromDataFrame(fread(cmd=paste("zcat", tss_file)))
+tss_gr = makeGRangesFromDataFrame(fread(cmd=paste("zcat", tss_file)),
+                                  keep.extra.columns=T)
 names(tss_gr) = tss_gr$tx_name
 
 lookup_dt = fread(cmd=paste("zcat", lookup_matrix))
@@ -56,6 +57,7 @@ lookup_list = list('symbol'=symbol_dt, 'ensembl_gene'=ensembl_dt,
 
 
 get_center <- function(text_input, lookup_list, tss_gr){
+
   match_list = list(ensembl_transcript='^ENST[0-9]+$',
                     ensembl_gene='^ENSG[0-9]+$',
                     gencode='^ENSG[0-9]+[.][0-9]+$',
