@@ -696,7 +696,7 @@ shinyServer(function(input, output, session) {
         frag_gr = makeGRangesFromDataFrame(hg19_dt)
 
         track_names = c('K562_plus', 'K562_minus', 'HEPG2_plus',
-                        'HEPG2_plus')
+                        'HEPG2_minus')
 
         score_list = lapply(track_names, function(track){
             file = paste0('data/',
