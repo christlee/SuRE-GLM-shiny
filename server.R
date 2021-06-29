@@ -214,10 +214,9 @@ plot_mat <-function(mat, input, cutoff, max_color){
     geom_tile(width=input$binsize, height=input$binsize) +
     theme_bw() +
     scale_fill_gradientn(colours=colorlut, limits=c(0,exp(max_color))) +
-    coord_cartesian(ylim=c(0,cutoff)) +
     ylab('reporter length') +
     xlab('##chromosome##') +
-    coord_fixed() +
+    coord_fixed(ylim=c(0,cutoff)) +
     theme(axis.title.x=element_blank())
   return(p)
 }
@@ -236,7 +235,7 @@ printRegion <- function(region){
 }
 
 liftOver <- function(region, toHg19=TRUE){
-    chain = ifelse (toHg19, hg38ToHg19, hg19ToHg38)
+    chain = ifelse(toHg19, hg38ToHg19, hg19ToHg38)
     region_str = paste(region, collapse='\t')
 
     cmd = paste0('printf "', region_str, '" | ', "liftOver",
@@ -394,6 +393,7 @@ shinyServer(function(input, output, session) {
 
     observeEvent(input$plot_click, {
         print('click!')
+        print(input$plot_click)
         x = round(input$plot_click$x)
         y = round(input$plot_click$y)
         updateVals(x=x, y=y)
@@ -412,23 +412,28 @@ shinyServer(function(input, output, session) {
     # })
 
     observeEvent(input$plot_brush, {
-        xmin = round(input$plot_brush$xmin)
-        xmax = round(input$plot_brush$xmax)
+        ## weird translation necessary because grid.draw messes up coordinates
+        xmin = input$plot_brush$xmin * 0.98056 - 0.01206
+        xmax = input$plot_brush$xmax * 0.98056 - 0.01206
 
-        left = input$plot_brush$domain$left
-        right = input$plot_brush$domain$right
+        #
+        # size = input$window[1] + input$window[2]
+        #
+        # xmin = xmin * size
+        # xmax = xmax * size
 
-        xmin = xmin * (right - left)
-        xmax = xmax * (right - left)
-
-        print(input$plot_brush)
         input_list = dataInput()
 
-        x_size = input$window[2] - input$window[1]
-        x_start = input$window[1] + xmin * x_size
-        x_end = input$window[1] + xmax * x_size
+        x_size = -input$window[1] + input$window[2]
+        print(x_size)
+        print(xmin)
+        print(xmax)
+        print(x_size*xmin)
+        x_start = xmin * x_size + input$window[1]
+        print(x_start)
+        x_end = xmax * x_size + input$window[1]
 
-        updateVals(start=x_start, end=x_end)
+        updateVals(start=round(x_start), end=round(x_end))
         #
         # y = x_end - x_start
         # x = (x_start + x_end) / 2
@@ -465,7 +470,7 @@ shinyServer(function(input, output, session) {
                               inherit.aes=F)
         }
         gt <- ggplot_gtable(ggplot_build(p))
-        plot(p + theme(legend.position="none"))
+        p + theme(legend.position="none")
     })
 
     output$trianglePlot_rev <- renderPlot({
@@ -484,6 +489,8 @@ shinyServer(function(input, output, session) {
       }
       gt <- ggplot_gtable(ggplot_build(p))
       p + theme(legend.position="none")
+
+
     })
 
 
