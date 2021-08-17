@@ -155,7 +155,7 @@ triangle_dt <- function(center, upstream = 1000, downstream=1000,
     end_time <- Sys.time()
     print(end_time - start_time)
     x_mat <- (start_mat + end_mat)[!is.na(mat)]/2
-    y_mat <- abs(end_mat - start_mat)[!is.na(mat)]
+    y_mat <- abs(end_mat - start_mat)[!is.na(mat)] + binsize
     #
     # dt = data.table(x=x_mat, y=y_mat, score=mat[!is.na(mat)],
     #                 x_rel = (x_mat - center_pos) * ifelse(strand=='plus', -1, 1))
@@ -171,7 +171,7 @@ triangle_dt <- function(center, upstream = 1000, downstream=1000,
     ##      calculation
     if (strand=='plus'){
         dt = data.table(x=x_mat, y=y_mat, score=mat[!is.na(mat)],
-                      x_rel = (x_mat - center_pos))
+                        x_rel = (x_mat - center_pos))
         mat_dt = dt[x_rel <= downstream & x_rel >= -upstream, ]
 
         flat_dt = data.table(score=glm,
