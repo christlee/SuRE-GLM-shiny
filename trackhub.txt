@@ -1,6 +1,5 @@
 hub SuRE-GLM
 shortLabel SuRE trackHub
 longLabel SuRE trackHub
-genome hg19
-trackDb trackDb.txt
+genomesFile genomes.txt
 email "c.leemans@nki.nl"

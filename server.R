@@ -26,6 +26,12 @@ jtrack_start = paste("tracks=gencode.v27lift37",
                      "TTseq_K562_rep2_plus_hg19",
                      "TTseq_K562_rep2_minus_hg19", sep='%2C')
 
+ucsc = "https://genome-euro.ucsc.edu/cgi-bin/hgTracks?"
+
+ucsc_opt = paste("db=hg19",
+                 "hubUrl=***REMOVED***SuRE-GLM-shiny/trackhub.txt",
+                 sep='&')
+
 hg38ToHg19 = "data/hg38ToHg19.over.chain"
 hg19ToHg38 = "data/hg19ToHg38.over.chain"
 
@@ -37,11 +43,13 @@ names(tss_gr) = tss_gr$tx_name
 lookup_dt = fread(cmd=paste("zcat", lookup_matrix))
 
 
-ensembl_dt = lookup_dt[,list(ensembl_id = gsub('[.]*', '', gene_id),
+ensembl_dt = lookup_dt[,list(ensembl_id = gsub('[.].*', '', gene_id),
                              transcript_id)]
 setkey(ensembl_dt, 'ensembl_id')
 
-gencode_dt = lookup_dt[, c('gene_id', 'transcript_id')]
+
+gencode_dt = lookup_dt[,list(gene_id = gsub('_.*', '', gene_id),
+                             transcript_id)]
 setkey(gencode_dt, 'gene_id')
 
 symbol_dt = lookup_dt[, c('gene_name', 'transcript_id')]
@@ -79,7 +87,13 @@ get_center <- function(text_input, lookup_list, tss_gr){
       i = i + 1
     }
     transcript_id = lookup_list[[match_name]][text_input, transcript_id]
-    center = tss_gr[transcript_id]
+
+    if (!is.na(transcript_id)){
+        center = tss_gr[transcript_id]
+    } else {
+        center = NA
+    }
+
   }
   return(center)
 }
@@ -285,11 +299,15 @@ shinyServer(function(input, output, session) {
         start = NA,
         end = NA,
         region = NA,
-        center = NA
+        center = NA,
+        show_minus = FALSE
     )
 
     dataInput <- eventReactive(input$go, {
         center = get_center(input$ROI, lookup_list, tss_gr)
+        validate(
+            need(!is.na(center), "please enter a valid gene name/identifier")
+        )
         vals$center = center
         if (input$lib%in%c('K562', 'HEPG2')){
           offset = offset_coefs$width[[1]]
@@ -298,60 +316,68 @@ shinyServer(function(input, output, session) {
           offset = 0
           cutoff = input$cutoff23
         }
-
         dt = triangle_dt(center, upstream=input$window[1]*-1,
                          downstream=input$window[2],
                          cutoff = cutoff, binsize=input$binsize, offset=offset,
                          filePart = lib_vec[input$lib])
+        max_sense = dt$mat_dt[, max(score)]
 
-        dt_rev = triangle_dt(center, upstream=input$window[1]*-1,
-                             downstream=input$window[2],
-                             cutoff = cutoff, binsize=input$binsize, offset=offset,
-                             filePart = lib_vec[input$lib], rev_comp = T)
-        names(dt_rev) = paste0(names(dt_rev), '_rev')
+        if (input$show_minus==TRUE){
+            vals$show_minus = TRUE
+            dt_rev = triangle_dt(center, upstream=input$window[1]*-1,
+                                 downstream=input$window[2],
+                                 cutoff = cutoff, binsize=input$binsize, offset=offset,
+                                 filePart = lib_vec[input$lib], rev_comp = T)
+            names(dt_rev) = paste0(names(dt_rev), '_rev')
+            max_antisense = dt_rev$mat_dt_rev[, max(score)]
+        } else {
+            vals$show_minus = FALSE
+            dt_rev = NULL
+            max_antisense = -Inf
+        }
         strand = strand(center)
         sec = start(center) * ifelse(strand=='+', 1, -1)
 
 
-        peak_dt = suppressWarnings(get_peaks(dt$region,
-                                             peak_file[input$lib]))
-        if (nrow(peak_dt)==0){
-            peak_melt = peak_dt
-        } else {
-            peak_dt[,group:=1:nrow(peak_dt)]
-            peak_melt = melt(peak_dt, measure.vars=c('start', 'end'),
-                             value.name='x')
-            if (as.character(strand) == '+'){
-                peak_melt[,x_rel := x - start(center)]
-                peak_dt[, strand_order:= ifelse(strand=='+',2,1)]
-                max_peak = peak_dt[order(strand_order,score, decreasing=T), ][1,]
-                updateVals(start=max_peak[['start']] - start(center),
-                           end=max_peak[['end']] - start(center))
-            } else {
-                peak_melt[,x_rel := start(center) - x]
-                peak_dt[, strand_order:= ifelse(strand=='+',1,2)]
-                max_peak = peak_dt[order(strand_order,score, decreasing=T), ][1,]
-
-                updateVals(start=start(center) - max_peak[['start']],
-                           end=start(center) - max_peak[['end']])
-            }
-        }
-        max_color = max(dt$mat_dt[, max(score)],
-                        dt_rev$mat_dt_rev[, max(score)])
-
+        # peak_dt = suppressWarnings(get_peaks(dt$region,
+        #                                      peak_file[input$lib]))
+        # if (nrow(peak_dt)==0){
+        #     peak_melt = peak_dt
+        # } else {
+        #     peak_dt[,group:=1:nrow(peak_dt)]
+        #     peak_melt = melt(peak_dt, measure.vars=c('start', 'end'),
+        #                      value.name='x')
+        #     if (as.character(strand) == '+'){
+        #         peak_melt[,x_rel := x - start(center)]
+        #         peak_dt[, strand_order:= ifelse(strand=='+',2,1)]
+        #         max_peak = peak_dt[order(strand_order,score, decreasing=T), ][1,]
+        #         updateVals(start=max_peak[['start']] - start(center),
+        #                    end=max_peak[['end']] - start(center))
+        #     } else {
+        #         peak_melt[,x_rel := start(center) - x]
+        #         peak_dt[, strand_order:= ifelse(strand=='+',1,2)]
+        #         max_peak = peak_dt[order(strand_order,score, decreasing=T), ][1,]
+        #
+        #         updateVals(start=start(center) - max_peak[['start']],
+        #                    end=start(center) - max_peak[['end']])
+        #     }
+        # }
+        max_color = max(max_sense, max_antisense)
         p = plot_mat(dt$mat_dt, input, cutoff, max_color) +
           scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
+
+        gt <- ggplot_gtable(ggplot_build(p))
+        x_range = layer_scales(p)$x$range$range
+        gt_widths=list(gt$widths[c(1:6)])
+
         # print(xy_list)
         # if (!is.na(vals$x)){
         #     p = p + geom_line(data=get_triangle(),
         #                       aes(x=x,y=y,group=group), inherit.aes=F)
         # }
-        gt <- ggplot_gtable(ggplot_build(p))
-        x_range = layer_scales(p)$x$range$range
         return(c(dt, dt_rev, center=center, max_color=max_color,
-                 gt_widths=list(gt$widths[c(1:6)]),
-                 list(peak_fwd=peak_melt[strand==as.character(strand(center)), ],
-                      peak_rev=peak_melt[strand!=as.character(strand(center)), ])))
+                 gt_widths=gt_widths))
+
     })
 
 
@@ -434,26 +460,13 @@ shinyServer(function(input, output, session) {
         x_end = xmax * x_size + input$window[1]
 
         updateVals(start=round(x_start), end=round(x_end))
-        #
-        # y = x_end - x_start
-        # x = (x_start + x_end) / 2
-        # vals$triangle <- data.frame(x=c(x_start, x, x, x_end),
-        #                             y=c(0, y, y, 0),
-        #                             group= c(1,1,2,2))
-        #
-        # input_list$x_range[1]
-        # center = var$center
-        # start = start(center) + x_start
-        # end = start(center) + x_end
+
 
         updateSelection()
-        # vals$score = input_list$flat_dt[x%in%start:end, sum(score)]
-        # vals$score_rev = input_list$flat_dt_rev[x%in%start:end, sum(score)]
     })
 
 
     output$trianglePlot <- renderPlot({
-
         cutoff = ifelse(input$lib%in%c('HEPG2', 'K562'), input$cutoff42, input$cutoff23)
         start_time <- Sys.time()
         input_list = dataInput()
@@ -471,37 +484,38 @@ shinyServer(function(input, output, session) {
         }
         gt <- ggplot_gtable(ggplot_build(p))
         p + theme(legend.position="none")
+
     })
 
     output$trianglePlot_rev <- renderPlot({
+        if (vals$show_minus==TRUE){
+          cutoff = ifelse(input$lib%in%c('HEPG2', 'K562'), input$cutoff42, input$cutoff23)
 
-      cutoff = ifelse(input$lib%in%c('HEPG2', 'K562'), input$cutoff42, input$cutoff23)
+          input_list = dataInput()
+          strand = strand(input_list$center)
+          sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
 
-      input_list = dataInput()
-      strand = strand(input_list$center)
-      sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
-
-      p = plot_mat(input_list$mat_dt_rev, input, cutoff, input_list$max_color) +
-        scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
-      if (!is.na(vals$x)){
-        p = p + geom_line(data=get_triangle(), aes(x=x,y=y,group=group),
-                          inherit.aes=F)
+          p = plot_mat(input_list$mat_dt_rev, input, cutoff, input_list$max_color) +
+            scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
+          if (!is.na(vals$x)){
+            p = p + geom_line(data=get_triangle(), aes(x=x,y=y,group=group),
+                              inherit.aes=F)
+          }
+          gt <- ggplot_gtable(ggplot_build(p))
+          p + theme(legend.position="none")
       }
-      gt <- ggplot_gtable(ggplot_build(p))
-      p + theme(legend.position="none")
-
 
     })
 
 
     output$legend <- renderPlot({
-
         cutoff = ifelse(input$lib%in%c('HEPG2', 'K562'), input$cutoff42, input$cutoff23)
         input_list = dataInput()
         p = plot_mat(input_list$mat_dt, input, cutoff, input_list$max_color) +
             theme(legend.title=element_blank())
         legend <- get_legend(p)
         plot(legend)
+
     })
 
     output$flatPlot <- renderPlot({
@@ -525,92 +539,44 @@ shinyServer(function(input, output, session) {
         gt2$widths[1:6] <- input_list$gt_widths
         grid.draw(gt2)
     })
-    #
-    # output$peakPlot <- renderPlot({
-    #     input_list = dataInput()
-    #     strand = strand(input_list$center)
-    #     sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
-    #     peak_dt = input_list$peak_fwd
-    #     print(peak_dt)
-    #     if (nrow(peak_dt) > 0){
-    #         p2 = ggplot(peak_dt, aes(x=x_rel, y=factor(group),
-    #                                  color=exp(score))) +
-    #           geom_line(size=3) +
-    #           scale_color_gradientn(colours=colorlut,
-    #                                 limits=c(0, exp(input_list$max_color))) +
-    #           theme_bw() +
-    #           xlab('peaks') +
-    #           coord_cartesian(input$window) +
-    #           scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0)) +
-    #           scale_y_discrete(breaks=NULL) +
-    #           theme(axis.title.y=element_blank(),
-    #                 legend.position="none")
-    #         if (!is.na(vals$x)){
-    #           p2 = p2 + geom_vline(xintercept=vals$start) +
-    #             geom_vline(xintercept=vals$end)
-    #         }
-    #         gt2 <- ggplot_gtable(ggplot_build(p2))
-    #         gt2$widths[1:6] <- input_list$gt_widths
-    #     } else {
-    #         gt2 = 0
-    #     }
-    #     plot(gt2)
-    # })
+
 
     output$flatPlot_rev <- renderPlot({
-        input_list = dataInput()
-        strand = strand(input_list$center)
-        sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
+        if (vals$show_minus==TRUE){
+            input_list = dataInput()
+            strand = strand(input_list$center)
+            sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
 
-        p2 = ggplot(input_list$flat_dt_rev, aes(x=x_rel, y=score, color=score > 0)) +
-          geom_histogram(stat='identity') +
-          scale_fill_manual(values=c(T='blue',F='red')) +
-          theme_bw() +
-          xlab('coefficients') +
-          theme(legend.position="none") +
-          coord_cartesian(input$window) +
-          scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
-        if (!is.na(vals$x)){
-          p2 = p2 + geom_vline(xintercept=vals$start) +
-            geom_vline(xintercept=vals$end)
+            p2 = ggplot(input_list$flat_dt_rev, aes(x=x_rel, y=score, color=score > 0)) +
+              geom_histogram(stat='identity') +
+              scale_fill_manual(values=c(T='blue',F='red')) +
+              theme_bw() +
+              xlab('coefficients') +
+              theme(legend.position="none") +
+              coord_cartesian(input$window) +
+              scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
+            if (!is.na(vals$x)){
+              p2 = p2 + geom_vline(xintercept=vals$start) +
+                geom_vline(xintercept=vals$end)
+            }
+            gt2 <- ggplot_gtable(ggplot_build(p2))
+            gt2$widths[1:6] <- input_list$gt_widths
+            plot(gt2)
         }
-        gt2 <- ggplot_gtable(ggplot_build(p2))
-        gt2$widths[1:6] <- input_list$gt_widths
-        plot(gt2)
     })
-    #
-    # output$peakPlot_rev <- renderPlot({
-    #     input_list = dataInput()
-    #     strand = strand(input_list$center)
-    #     sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
-    #     peak_dt = input_list$peak_rev
-    #     print(peak_dt$score)
-    #     print(peak_dt[,exp(score)])
-    #     if (nrow(peak_dt) > 0){
-    #         p2 = ggplot(peak_dt, aes(x=x_rel, y=factor(group),
-    #                                  color=exp(score))) +
-    #           geom_line(size=3) +
-    #           scale_color_gradientn(colours=colorlut,
-    #                                 limits=c(0, exp(input_list$max_color))) +
-    #           theme_bw() +
-    #           xlab('peaks') +
-    #           coord_cartesian(input$window) +
-    #           scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0)) +
-    #           scale_y_discrete(breaks=NULL) +
-    #           theme(axis.title.y=element_blank(),
-    #                 legend.position="none")
-    #         if (!is.na(vals$x)){
-    #           p2 = p2 + geom_vline(xintercept=vals$start) +
-    #             geom_vline(xintercept=vals$end)
-    #         }
-    #         gt2 <- ggplot_gtable(ggplot_build(p2))
-    #         gt2$widths[1:6] <- input_list$gt_widths
-    #     } else {
-    #         gt2 = 0
-    #     }
-    #     plot(gt2)
-    # })
 
+
+    output$text_minus <- renderText({
+        if (vals$show_minus==TRUE){
+            HTML("<h3>anti-sense orientation</h3>")
+        }
+    })
+
+    output$text_plus <- renderText({
+        if (!is.na(vals$center)){
+            HTML("<h3>sense orientation</h3>")
+        }
+    })
 
     output$selection <- renderTable({
         input_list = dataInput()
@@ -619,16 +585,19 @@ shinyServer(function(input, output, session) {
             selection = vals$start:vals$end
 
             score = input_list$flat_dt[x_rel%in%selection, sum(score)]
-            score_rev = input_list$flat_dt_rev[x_rel%in%selection, sum(score)]
-            dt = data.table(prediction = exp(score),
-                            prediction_rev = exp(score_rev))
-            colnames(dt) = c('sense expression',
-                             'anti-sense expression')
+            if (vals$show_minus){
+                score_rev = input_list$flat_dt_rev[x_rel%in%selection, sum(score)]
+                dt = data.table(prediction = exp(score),
+                                prediction_rev = exp(score_rev))
+                colnames(dt) = c('sense expression',
+                                 'anti-sense expression')
+            } else {
+                dt = data.table(prediction = exp(score))
+                colnames(dt) = c('sense expression')
+            }
         } else {
-            dt = data.table(prediction = NaN,
-                            prediction_rev = NaN)
-            colnames(dt) = c('sense expression',
-                             'anti-sense expression')
+            dt = data.table(prediction = NaN)
+            colnames(dt) = c('sense expression')
         }
         return(dt)
     })
@@ -657,25 +626,32 @@ shinyServer(function(input, output, session) {
         # replaceData(proxy5, d5, resetPaging = FALSE)
     })
 
-    output$jbrowse <- renderUI({
+    output$ucsc <- renderText({
         input_list = dataInput()
         region = input_list$region
 
-        jloc = paste0("loc=", seqnames(region), "%3A", start(region), "...",
-                      end(region))
-        sure_tracks = paste0(lib_vec[input$lib], c('plus', 'minus'))
-        jtracks = paste(c(jtrack_start, sure_tracks), collapse="%2C")
-        src = paste(jbrowse, jloc, jtracks, sep='&')
+        location = paste0("position=", seqnames(region), "%3A", start(region), "-",
+                          end(region))
+
+        src = paste0(ucsc, paste(ucsc_opt, location, sep='&'))
         if (any(!is.na(vals$region))){
             jhighlight = paste0("highlight=", vals$region[1], "%3A", vals$region[2],
-                                "...", vals$region[3])
+                                "-", vals$region[3])
             src = paste(src, jhighlight, sep='&')
         }
-        my_test <- tags$iframe(src=src, height=200, width=800,
-                               onload="vertical_scrollbar.scrollTo(0,0);")
-        my_test
+        HTML(paste0("<a class='btn btn-primary' href='", src,
+                    "', target='_blank'>",
+                    "open region in UCSC browser</a>"))
     })
 
+    output$hg19_sel = renderUI({
+        if (!is.na(vals$center)){
+            fluidRow(textInput("hg19_selection", "ROI hg19:"),
+                     textInput("hg38_selection", "ROI hg38:"),
+                     actionButton("update", "Update"))
+
+        }
+    })
 
     fragmentInput <- observeEvent(input$fragment_file,{
         upload = paste(readLines(input$fragment_file$datapath), collapse="\n")
