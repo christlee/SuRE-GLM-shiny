@@ -1,12 +1,9 @@
-hub SuRE_GLM
-shortLabel SuRE_GLM
-longLabel SuRE_GLM
-genomesFile genomes.txt
-
 track SuRE-GLM
 container multiWig
 shortLabel SuRE trackHub
 longLabel SuRE trackHub
+type bigWig
+
 
 
 track SURE_elasticNet_allele_K562_plus
