@@ -1,0 +1,23 @@
+track SURE_elasticNet_allele_K562_plus
+type bigWig
+bigDataUrl ***REMOVED***jbrowse-hg19/data/SURE_elasticNet_allele_K562_plus.bw
+shortLabel SuRE-GLM K562 plus
+longLabel SuRE-GLM model for K562 for plus orientation (FitzPatrick et al.).
+
+track SURE_elasticNet_allele_K562_minus
+type bigWig
+bigDataUrl ***REMOVED***jbrowse-hg19/data/SURE_elasticNet_allele_K562_minus.bw
+shortLabel SuRE-GLM K562 minus
+longLabel SuRE-GLM model for K562 for minus orientation (FitzPatrick et al.).
+
+track SURE_elasticNet_allele_HepG2_plus
+type bigWig
+bigDataUrl ***REMOVED***jbrowse-hg19/data/SURE_elasticNet_allele_HepG2_plus.bw
+shortLabel SuRE-GLM HepG2 plus
+longLabel SuRE-GLM model for HepG2 for plus orientation (FitzPatrick et al.).
+
+track SURE_elasticNet_allele_HepG2_minus
+type bigWig
+bigDataUrl ***REMOVED***jbrowse-hg19/data/SURE_elasticNet_allele_HepG2_minus.bw
+shortLabel SuRE-GLM HepG2 minus
+longLabel SuRE-GLM model for HepG2 for minus orientation (FitzPatrick et al.).
