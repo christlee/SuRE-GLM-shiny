@@ -1,3 +1,8 @@
+hub SuRE_GLM
+shortLabel SuRE_GLM
+longLabel SuRE_GLM
+genomesFile genomes.txt
+
 track SuRE-GLM
 container multiWig
 shortLabel SuRE trackHub
