@@ -1,3 +1,8 @@
+hub SuRE-GLM
+shortLabel SuRE trackHub
+longLabel SuRE trackHub
+
+
 track SURE_elasticNet_allele_K562_plus
 type bigWig -1.12313 0.712607
 bigDataUrl ***REMOVED***jbrowse-hg19/data/SURE_elasticNet_allele_K562_plus.bw
