@@ -2,7 +2,7 @@ track SuRE-GLM
 container multiWig
 shortLabel SuRE trackHub
 longLabel SuRE trackHub
-
+email "c.leemans@nki.nl"
 
 track SURE_elasticNet_allele_K562_plus
 type bigWig -1.12313 0.712607
