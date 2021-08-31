@@ -1,5 +1,4 @@
 
-library(shinyBS)
 shinyUI(
   navbarPage("SuRE GLM",
     tabPanel("Inspect promoter",
