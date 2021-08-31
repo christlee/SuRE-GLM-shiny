@@ -1,9 +1,10 @@
 
+library(shinyBS)
 shinyUI(
   navbarPage("SuRE GLM",
     tabPanel("Inspect promoter",
-      tags$style("#hg19_selection {font-size:9px;}"),
-      tags$style("#hg38_selection {font-size:9px;}"),
+      # tags$style("#hg19_selection {font-size:12px;}"),
+      # tags$style("#hg38_selection {font-size:12px;}"),
       # App title ----
       # Sidebar layout with input and output definitions ----
       fluidRow(
@@ -47,41 +48,38 @@ shinyUI(
           helpText(paste0("Use either gene symbol, ensembl ID or chromosome ",
                   "position (using gencode v27).")),
           textInput("ROI", h4("Region of interest"),
-              value = "e.g. NUP214, ENSG00000126883[.16], chr9:134000948:+"),
+                    value = "e.g. NUP214, ENSG00000126883[.16], chr9:134000948:+"),
           actionButton("go", "Submit")
         ),
-        # Main panel for displaying outputs ----q
-        column(8,
-              #
-              # Output: Histogram ----
-              column(3,
-                fluidRow(tableOutput('selection'),
-                         uiOutput("ucsc"),
-                         )),
-              column(9, uiOutput("hg19_sel")),
+        column(1, plotOutput(outputId = "legend", height=150)),
 
+        # Main panel for displaying outputs ----q
+        column(6,
               uiOutput("text_plus"),
               # checkboxInput("show_plus", strong("sense orientation"),
               #               value=TRUE, width="100%"),
               plotOutput(outputId = "trianglePlot", click="plot_click", width=800, height=300),
               # plotOutput(outputId = "peakPlot", click="plot_click_peak", width=800, height=100),
               plotOutput(outputId = "flatPlot", brush="plot_brush", width=800, height=200),
-              htmlOutput(outputId = "jbrowse", width=800, height=200),
+
+
+              fluidRow(column(6, uiOutput("hg19_sel")),
+                       column(4, div(tableOutput('selection'), style="font-size:200%"),
+                                 uiOutput("help_selection"))),
+
 
               uiOutput("text_minus"),
 
-              plotOutput(outputId = "trianglePlot_rev", click="plot_click", width=800, height=300),
+              plotOutput(outputId = "trianglePlot_rev", click="plot_click"),
+              # , width=750, height=300),
               # plotOutput(outputId = "peakPlot_rev", click="plot_click_peak", width=800, height=100),
-              plotOutput(outputId = "flatPlot_rev", brush="plot_brush", width=800, height=200),
+              plotOutput(outputId = "flatPlot_rev", brush="plot_brush")
+              # , width=750, height=200),
           ),
-
-    column(1,
-      plotOutput(outputId = "legend", width=50, height=100)
-    )
-
-
-
-   )),
+    column(3,
+      uiOutput("ROI_info"),
+      uiOutput("ucsc")
+    ))),
     tabPanel("Predict fragments",
       sidebarLayout(
        # Sidebar panel for inputs ----

@@ -222,16 +222,25 @@ lib_vec = c('K562'='SURE_elasticNet_allele_K562_',
 
 input = list(ROI='NUP214', binsize=10, window=c(-1000,1000), cutoff = c(200,1500))
 
-colorlut <- colorRampPalette(c("#313695", "#4575B4", "#74ADD1", "#ABD9E9",
-                               "#E0F3F8", "#FFFFBF", "#FEE090", "#FDAE61",
-                               "#F46D43", "#D73027", "#B91326",
-                               "#A50026"))(101) # height color lookup table
+# colorlut <- colorRampPalette(c("#313695", "#4575B4", "#74ADD1", "#ABD9E9",
+#                                "#E0F3F8", "#FFFFBF", "#FEE090", "#FDAE61",
+#                                "#F46D43", "#D73027", "#B91326",
+#                                "#A50026"))(101) # height color lookup table
+colorlut <- c(colorRampPalette(c("#ffffff", "#000000"))(91), rep("#000000",10)) # height color lookup table
+
 
 plot_mat <-function(mat, input, cutoff, max_color){
-    print(exp(max_color))
-    print(max(exp(mat$score)))
+  min_rel = mat[, min(x_rel)]
+  max_rel = mat[, max(x_rel)]
+  max_y = mat[,max(y)]
+  corners = data.frame(x_rel=c(min_rel, min_rel + cutoff/2,
+                               max_rel-max_y/2, max_rel),
+                       y=c(0,max_y, max_y, 0))
+  trapezoid = cbind(corners[c(1,2,2,3,3,4,4,1), ], line_n=c(1,1,2,2,3,3,4,4))
+  print(trapezoid)
   p = ggplot(mat, aes(x=x_rel, y=y, fill=exp(score))) +
     geom_tile(width=input$binsize, height=input$binsize) +
+    geom_line(data=trapezoid, aes(x=x_rel,y=y,group=line_n), inherit.aes=F) +
     theme_bw() +
     scale_fill_gradientn(colours=colorlut, limits=c(0,exp(max_color))) +
     ylab('reporter length') +
@@ -518,9 +527,9 @@ shinyServer(function(input, output, session) {
         cutoff = ifelse(input$lib%in%c('HEPG2', 'K562'), input$cutoff42, input$cutoff23)
         input_list = dataInput()
         p = plot_mat(input_list$mat_dt, input, cutoff, input_list$max_color) +
-            theme(legend.title=element_blank())
+            labs(fill="predicted\nexpression")
         legend <- get_legend(p)
-        plot(legend)
+        grid.draw(legend)
 
     })
 
@@ -584,6 +593,34 @@ shinyServer(function(input, output, session) {
         }
     })
 
+    output$ROI_info <- renderText({
+        steps = paste("<b><h3>How to:</h3>",
+                      "<ol>",
+                      "  <li>Enter a specific locus in the 'region of interest' field</li></br>",
+                      "  <li>Press Submit</li></br>")
+
+        # if (!is.na(vals$center)){
+
+        steps = paste(steps,
+                      "<li>Select a promoter fragment to predict its expression by:</li></b>",
+                      "  <dd>- Clicking on a point within the triangle plot</dd>",
+                      "  <dd>- Selecting a region in the coefficient plot <i>(click + drag)</i></dd>",
+                      "  <dd>- Filling in promoter fragment coordinates <i>(and pressing update)</i></dd></br><b>")
+        # }
+        # else {
+        #     steps = paste(steps,
+        #                   "<li>...</li>")
+        # }
+        HTML(paste0(steps, "</b>"))
+    })
+
+    output$help_selection <- renderUI({
+        if (!is.na(vals$center)){
+            helpText(paste("expression prediction for selected promoter",
+                           "fragment (for anti-sense use advanced options)"))
+        }
+    })
+
     output$selection <- renderTable({
         input_list = dataInput()
 
@@ -595,18 +632,19 @@ shinyServer(function(input, output, session) {
                 score_rev = input_list$flat_dt_rev[x_rel%in%selection, sum(score)]
                 dt = data.table(prediction = exp(score),
                                 prediction_rev = exp(score_rev))
-                colnames(dt) = c('sense expression',
-                                 'anti-sense expression')
+                colnames(dt) = c('sense',
+                                 'anti-sense')
             } else {
                 dt = data.table(prediction = exp(score))
-                colnames(dt) = c('sense expression')
+                colnames(dt) = c('sense')
             }
         } else {
             dt = data.table(prediction = NaN)
-            colnames(dt) = c('sense expression')
+            colnames(dt) = c('sense')
         }
         return(dt)
-    })
+    }, caption="Expression",
+    caption.placement = getOption("xtable.caption.placement", "top"))
 
     parseLocation <- function(location){
         return(str_match(location, "(.*):([0-9]+)-([0-9]+)")[2:4])
@@ -652,8 +690,10 @@ shinyServer(function(input, output, session) {
 
     output$hg19_sel = renderUI({
         if (!is.na(vals$center)){
-            fluidRow(textInput("hg19_selection", "ROI hg19:"),
-                     textInput("hg38_selection", "ROI hg38:"),
+            fluidRow(textInput("hg19_selection", "promoter fragment hg19:",
+                               value = "e.g. chr9:134000948-134001248"),
+                     textInput("hg38_selection", "promoter fragment hg38:",
+                               value = "e.g. chr9:134000948-134001248"),
                      actionButton("update", "Update"))
 
         }
