@@ -29,7 +29,7 @@ jtrack_start = paste("tracks=gencode.v27lift37",
 ucsc = "https://genome-euro.ucsc.edu/cgi-bin/hgTracks?"
 
 ucsc_opt = paste("db=hg19",
-                 "hubUrl=***REMOVED***SuRE-GLM-shiny/trackhub.txt",
+                 "hubUrl=https://raw.githubusercontent.com/christlee/SuRE-GLM-shiny/main/trackhub.txt",
                  sep='&')
 
 hg38ToHg19 = "data/hg38ToHg19.over.chain"
@@ -76,6 +76,12 @@ get_center <- function(text_input, lookup_list, tss_gr){
                      IRanges(start=as.numeric(split_vec[2]),
                              width=1),
                      strand = split_vec[3])
+  } else if (grepl('chr[0-9XY]+:[0-9]+$', text_input)){
+      split_vec = strsplit(text_input, ':')[[1]]
+      center = GRanges(seqnames=split_vec[1],
+                       IRanges(start=as.numeric(split_vec[2]),
+                               width=1),
+                       strand='+')
   } else if (grepl('ENST[0-9]+[.][0-9]+', text_input)){
     center = tss_gr[text_input]
   } else {
