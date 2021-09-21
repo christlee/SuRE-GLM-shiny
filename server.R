@@ -41,7 +41,7 @@ tss_gr = makeGRangesFromDataFrame(fread(cmd=paste("zcat", tss_file)),
 names(tss_gr) = tss_gr$tx_name
 
 lookup_dt = fread(cmd=paste("zcat", lookup_matrix))
-
+lookup_dt[, gene_name:=toupper(gene_name)]
 
 ensembl_dt = lookup_dt[,list(ensembl_id = gsub('[.].*', '', gene_id),
                              transcript_id)]
@@ -65,7 +65,7 @@ lookup_list = list('symbol'=symbol_dt, 'ensembl_gene'=ensembl_dt,
 
 
 get_center <- function(text_input, lookup_list, tss_gr){
-
+  input_upper = toupper(text_input)
   match_list = list(ensembl_transcript='^ENST[0-9]+$',
                     ensembl_gene='^ENSG[0-9]+$',
                     gencode='^ENSG[0-9]+[.][0-9]+$',
@@ -82,17 +82,17 @@ get_center <- function(text_input, lookup_list, tss_gr){
                        IRanges(start=as.numeric(split_vec[2]),
                                width=1),
                        strand='+')
-  } else if (grepl('ENST[0-9]+[.][0-9]+', text_input)){
-    center = tss_gr[text_input]
+  } else if (grepl('ENST[0-9]+[.][0-9]+', input_upper)){
+    center = tss_gr[input_upper]
   } else {
     i = 1
     is_match = F
     while (!is_match==T) {
-      is_match = grepl(match_list[i], text_input)
+      is_match = grepl(match_list[i], input_upper)
       match_name = names(match_list)[i]
       i = i + 1
     }
-    transcript_id = lookup_list[[match_name]][text_input, transcript_id]
+    transcript_id = lookup_list[[match_name]][input_upper, transcript_id]
 
     if (!is.na(transcript_id)){
         center = tss_gr[transcript_id]
@@ -416,6 +416,9 @@ shinyServer(function(input, output, session) {
             region = c(as.character(seqnames(vals$center)),
                        start(vals$center) + (start * strand),
                        start(vals$center) + (end * strand))
+            if (strand==-1){
+                region = region[c(1,3,2)]
+            }
         }
         vals$x = x
         vals$y = y
