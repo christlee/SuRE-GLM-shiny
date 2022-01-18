@@ -599,8 +599,12 @@ shinyServer(function(input, output, session) {
     output$ROI_info <- renderText({
         steps = paste("<b><h3>How to:</h3>",
                       "<ol>",
-                      "  <li>Enter a specific locus in the 'region of interest' field</li></br>",
-                      "  <li>Press Submit</li></br>")
+                      "  <li>Enter a specific locus in the 'position of interest' field using:</li></b>",
+                      "    <dd>- gene symbol (e.g. NUP214)",
+                      "    <dd>- ensembl/gencode gene id (e.g. ENSG00000126883[.16])",
+                      "    <dd>- ensemble/gencode transcript id (e.g. ENST00000359428[.5])",
+                      "    <dd>- position on the genome in the form of [chromosome]:[position]:[strand] (used as center)</br></br>",
+                      "  <b><li>Press Submit</li></br>")
 
         # if (!is.na(vals$center)){
 

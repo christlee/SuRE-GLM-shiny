@@ -44,9 +44,9 @@ shinyUI(
               checkboxInput("show_minus", strong("show anti-sense orientation"),
                             value=FALSE,width="100%"),
           ),
-          helpText(paste0("Use either gene symbol, ensembl ID or chromosome ",
-                  "position (using gencode v27).")),
-          textInput("ROI", h4("Region of interest"),
+          helpText(paste0("Use either gene symbol, ensembl ID (using gencode v27)\n",
+                          "or [chromosome]:[position]:[strand].")),
+          textInput("ROI", h4("Position of interest"),
                     value = "e.g. NUP214, ENSG00000126883[.16], chr9:134000948:+"),
           actionButton("go", "Submit")
         ),
