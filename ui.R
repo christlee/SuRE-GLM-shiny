@@ -1,6 +1,36 @@
+library(plotly)
 
 shinyUI(
   navbarPage("SuRE GLM",
+    tabPanel("How-To",
+        sidebarLayout(
+            sidebarPanel(
+                HTML(paste('<b><h1>How to:</h1>',
+                           '<h3>Inspect a promoter:</h3>',
+                           '<ol>',
+                           '  <li>Go to the "inspect promoter" tab</b>',
+                           '    <dd>- The inspect promoter tab allows you to inspect promoter activity around a position of interest',
+                           '    <dd>- The predict fragments tab allows you to predict expression for a list of fragments (by genomic coordinate)',
+                           '    </br></br>',
+                           '  <b><li>Enter a specific locus in the "position of interest" field using:</li></b>',
+                           '    <dd>- gene symbol (e.g. NUP214)',
+                           '    <dd>- ensembl/gencode gene id (e.g. ENSG00000126883[.16])',
+                           '    <dd>- ensemble/gencode transcript id (e.g. ENST00000359428[.5])',
+                           '    <dd>- position on the genome in the form of [chromosome]:[position]:[strand] (used as center)</br></br>',
+                           '  <b><li>Press Submit</li></br>',
+                           '  <li>Select a promoter fragment to predict its expression by:</li></b>',
+                           '    <dd>- Clicking on a point within the triangle plot</dd>',
+                           '    <dd>- Selecting a region in the coefficient plot <i>(click + drag)</i></dd>',
+                           '    <dd>- Filling in promoter fragment coordinates <i>(and pressing update)</i></dd></br>')),
+            ),
+            mainPanel(
+                # HTML(paste('<img src="https://github.com/christlee/SuRE-GLM-shiny/raw/main/Tutorial1.png">',
+                #            "<b><h3>Extra information</h3></b>",
+                #            '<img src="https://github.com/christlee/SuRE-GLM-shiny/raw/main/Tutorial2.png">'))
+                HTML('<img src="https://github.com/christlee/SuRE-GLM-shiny/raw/main/Tutorial2.png">')
+            )
+
+        )),
     tabPanel("Inspect promoter",
       # tags$style("#hg19_selection {font-size:12px;}"),
       # tags$style("#hg38_selection {font-size:12px;}"),
@@ -28,15 +58,8 @@ shinyUI(
                     min = 1, max = 600, value = 400)
               ),
               # Input: Slider for the number of bins ----
-              sliderInput(inputId = "binsize",
-              label = "binsize used to display output",
-              min = 1,
-              max = 100,
-              value = 10
-              ),
-              # Input: Slider for the number of bins ----
               sliderInput(inputId = "window",
-              label = "region up and downstream from ROI",
+              label = "region up and downstream from POI",
               min = -2000,
               max = 2000,
               value = c(-1000,1000)
@@ -54,16 +77,19 @@ shinyUI(
 
         # Main panel for displaying outputs ----q
         column(6,
-              uiOutput("text_plus"),
+              uiOutput("text_warning"),
+              fluidRow(column(6,uiOutput("text_plus")),
+                       column(4,uiOutput("ucsc"))),
               # checkboxInput("show_plus", strong("sense orientation"),
               #               value=TRUE, width="100%"),
               plotOutput(outputId = "trianglePlot", click="plot_click", width=800, height=300),
               # plotOutput(outputId = "peakPlot", click="plot_click_peak", width=800, height=100),
               plotOutput(outputId = "flatPlot", brush="plot_brush", width=800, height=200),
 
+              plotlyOutput(outputId="frame", width=810, height='100'),
 
               fluidRow(column(6, uiOutput("hg19_sel")),
-                       column(4, div(tableOutput('selection'), style="font-size:200%"),
+                       column(4, div(tableOutput('selection'), style="font-size:150%"),
                                  uiOutput("help_selection"))),
 
 
@@ -76,8 +102,6 @@ shinyUI(
               # , width=750, height=200),
           ),
     column(3,
-      uiOutput("ROI_info"),
-      uiOutput("ucsc")
     ))),
     tabPanel("Predict fragments",
       sidebarLayout(

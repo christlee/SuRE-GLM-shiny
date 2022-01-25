@@ -1,4 +1,5 @@
 library(rtracklayer)
+library(JBrowseR)
 library(data.table)
 library(shiny)
 library(AnnotationDbi)
@@ -26,6 +27,9 @@ jtrack_start = paste("tracks=gencode.v27lift37",
                      "TTseq_K562_rep2_plus_hg19",
                      "TTseq_K562_rep2_minus_hg19", sep='%2C')
 
+washu = "https://raw.githubusercontent.com/christlee/SuRE-GLM-shiny/main/embedded_washu.html?"
+
+
 ucsc = "https://genome-euro.ucsc.edu/cgi-bin/hgTracks?"
 
 ucsc_opt = paste("db=hg19",
@@ -42,9 +46,9 @@ names(tss_gr) = tss_gr$tx_name
 
 lookup_dt = fread(cmd=paste("zcat", lookup_matrix))
 lookup_dt[, gene_name:=toupper(gene_name)]
+lookup_dt[, ensembl_id := gsub('[.].*', '', gene_id)]
 
-ensembl_dt = lookup_dt[,list(ensembl_id = gsub('[.].*', '', gene_id),
-                             transcript_id)]
+ensembl_dt = lookup_dt[,list(ensembl_id, transcript_id, gene_name)]
 setkey(ensembl_dt, 'ensembl_id')
 
 
@@ -52,7 +56,7 @@ gencode_dt = lookup_dt[,list(gene_id = gsub('_.*', '', gene_id),
                              transcript_id)]
 setkey(gencode_dt, 'gene_id')
 
-symbol_dt = lookup_dt[, c('gene_name', 'transcript_id')]
+symbol_dt = lookup_dt[, c('gene_name', 'transcript_id', 'ensembl_id')]
 setkey(symbol_dt, 'gene_name')
 
 transcript_dt = data.table(ensembl_tid = gsub('[.]*', '', names(tss_gr)),
@@ -119,6 +123,7 @@ triangle_dt <- function(center, upstream = 1000, downstream=1000,
     } else {
       region <- xregion
     }
+
     half_bin = round(binsize/2)
     start_i = (end(region) - start(region) - half_bin) %% binsize
     if (start_i < half_bin){
@@ -137,6 +142,7 @@ triangle_dt <- function(center, upstream = 1000, downstream=1000,
              end(region) - start(region), binsize)
 
     xlim <- c(start(xregion), end(xregion))
+
     if(strand == "minus"){
         i <- rev(i)
         xlim <- rev(xlim)
@@ -199,8 +205,8 @@ triangle_dt <- function(center, upstream = 1000, downstream=1000,
         flat_dt[,x_rel := x - center_pos]
     } else {
         dt = data.table(x=x_mat, y=y_mat, score=mat[!is.na(mat)],
-                      x_rel = (center_pos - x_mat))
-        mat_dt = dt[x_rel <= upstream & x_rel >= -downstream, ]
+                        x_rel = (center_pos - x_mat))
+        mat_dt = dt[x_rel <= downstream & x_rel >= -upstream, ]
 
 
         flat_dt = data.table(score=glm,
@@ -229,7 +235,7 @@ input = list(ROI='NUP214', binsize=10, window=c(-1000,1000), cutoff = c(200,1500
 colorlut <- c(colorRampPalette(c("#ffffff", "#000000"))(91), rep("#000000",10)) # height color lookup table
 
 
-plot_mat <-function(mat, input, cutoff, max_color){
+plot_mat <-function(mat, input, cutoff, max_color, binsize=10){
   min_rel = mat[, min(x_rel)]
   max_rel = mat[, max(x_rel)]
   max_y = mat[,max(y)]
@@ -237,16 +243,20 @@ plot_mat <-function(mat, input, cutoff, max_color){
                                max_rel-max_y/2, max_rel),
                        y=c(0,max_y, max_y, 0))
   trapezoid = cbind(corners[c(1,2,2,3,3,4,4,1), ], line_n=c(1,1,2,2,3,3,4,4))
-  print(trapezoid)
   p = ggplot(mat, aes(x=x_rel, y=y, fill=exp(score))) +
-    geom_tile(width=input$binsize, height=input$binsize) +
+    geom_tile(width=binsize, height=binsize) +
     geom_line(data=trapezoid, aes(x=x_rel,y=y,group=line_n), inherit.aes=F) +
-    theme_bw() +
+    ggplot2::theme_bw() +
     scale_fill_gradientn(colours=colorlut, limits=c(0,exp(max_color))) +
     ylab('reporter length') +
     xlab('##chromosome##') +
     coord_fixed(ylim=c(0,cutoff)) +
-    theme(axis.title.x=element_blank())
+    ggplot2::theme(axis.title.x=element_blank(),
+                   axis.text.y=element_text(size=14),
+                   axis.title.y=element_text(size=14),
+                   axis.text.x=element_text(size=14),
+                   plot.margin=margin(t=0,r=20,b=0,l=0),
+                   plot.title = element_text(hjust=0.5, size=14))
   return(p)
 }
 
@@ -299,7 +309,6 @@ shinyServer(function(input, output, session) {
   # 1. It is "reactive" and therefore should be automatically
   #    re-executed when inputs (input$bins) change
   # 2. Its output type is a plot
-
     updateSelection <- function(){
         updateTextInput(session, "hg19_selection",
             value=printRegion(vals$region))
@@ -315,10 +324,22 @@ shinyServer(function(input, output, session) {
         end = NA,
         region = NA,
         center = NA,
-        show_minus = FALSE
+        binsize = 10,
+        show_minus = FALSE,
+        uptodate = TRUE,
+        fragment_warning = FALSE
     )
 
+    observeEvent(input$window, {
+        vals$uptodate = FALSE
+    })
+
+    observeEvent(input$lib, {
+        vals$uptodate = FALSE
+    })
+
     dataInput <- eventReactive(input$go, {
+        vals$uptodate = TRUE
         center = get_center(input$ROI, lookup_list, tss_gr)
         validate(
             need(!is.na(center), "please enter a valid gene name/identifier")
@@ -331,9 +352,10 @@ shinyServer(function(input, output, session) {
           offset = 0
           cutoff = input$cutoff23
         }
+
         dt = triangle_dt(center, upstream=input$window[1]*-1,
                          downstream=input$window[2],
-                         cutoff = cutoff, binsize=input$binsize, offset=offset,
+                         cutoff = cutoff, binsize=10, offset=offset,
                          filePart = lib_vec[input$lib])
         max_sense = dt$mat_dt[, max(score)]
 
@@ -341,7 +363,7 @@ shinyServer(function(input, output, session) {
             vals$show_minus = TRUE
             dt_rev = triangle_dt(center, upstream=input$window[1]*-1,
                                  downstream=input$window[2],
-                                 cutoff = cutoff, binsize=input$binsize, offset=offset,
+                                 cutoff = cutoff, binsize=vals$binsize, offset=offset,
                                  filePart = lib_vec[input$lib], rev_comp = T)
             names(dt_rev) = paste0(names(dt_rev), '_rev')
             max_antisense = dt_rev$mat_dt_rev[, max(score)]
@@ -378,7 +400,7 @@ shinyServer(function(input, output, session) {
         #     }
         # }
         max_color = max(max_sense, max_antisense)
-        p = plot_mat(dt$mat_dt, input, cutoff, max_color) +
+        p = plot_mat(dt$mat_dt, input, cutoff, max_color, vals$binsize) +
           scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
 
         gt <- ggplot_gtable(ggplot_build(p))
@@ -424,7 +446,7 @@ shinyServer(function(input, output, session) {
         vals$y = y
         vals$start = start
         vals$end = end
-        print(vals)
+        vals$fragment_warning = FALSE
         vals$region = region
     }
 
@@ -484,6 +506,87 @@ shinyServer(function(input, output, session) {
     })
 
 
+    output$frame <- renderPlotly({
+        strand_color = c('+'='#228833', '-'='#EE6677')
+
+        input_list = dataInput()
+
+        if (!is.na(vals$center)){
+            xregion <- getPlotRegion()
+            tss_o = subjectHits(findOverlaps(xregion, tss_gr, ignore.strand=T))
+            tss_info = as.data.table(tss_gr[tss_o])
+            tss_info[, gene := factor(unlist(ensembl_dt[gsub('[.].*', '', gene_id),
+                                                        'gene_name']))]
+            tss_info[, sense := strand()]
+            tss_info[, xstart := start(vals$center) - start]
+            tss_info[, xend := ifelse(strand==strand(vals$center),
+                                      xstart + 100, xstart-100)]
+            tss_info[, y:=jitter(as.numeric(gene), amount=0.4)]
+
+            tss_info[, y:=y[order(y, decreasing=T)],by=gene]
+
+            tss_info[, color:=strand_color[strand]]
+            tss_info[, xanchor:=ifelse(strand==strand(vals$center),
+                                       'right', 'left')]
+            print(tss_info)
+            tip = copy(tss_info)
+            bottom = copy(tss_info)
+
+            bottom[, y := 0]
+
+            top = rbind(tip, tss_info)
+            down = rbind(bottom, tss_info)
+            print(levels(tss_info$gene))
+            tile_dt = data.table(gene=unique(tss_info$gene),
+                                 xstart=input$window[1],
+                                 xend=input$window[2],
+                                 ystart=as.numeric(unique(tss_info$gene)) - 0.5,
+                                 yend=as.numeric(unique(tss_info$gene)) + 0.5)
+            grey_list = rep(c("grey65", "grey85"),10)
+            print(tile_dt)
+            p = ggplot(top, aes(y=y, x=xstart, colour = strand,
+                                group=tx_name, label=gene, label2=gene_id,
+                                label3=tx_name))  +
+               geom_rect(data=tile_dt, inherit.aes=F,
+                         aes(xmin=xstart, xmax=xend, ymin=ystart, ymax=yend,
+                             fill=gene, alpha=0.3)) +
+               # geom_text(data=tile_dt, inherit.aes=F,
+               #           aes(x=xstart, y=as.numeric(label), label=label)) +
+               scale_fill_manual(values=grey_list) +
+               geom_line() +
+               geom_line(data=down) +
+               scale_color_manual(values=strand_color) +
+               coord_cartesian(input$window, expand=c(0,0)) +
+               theme_bw() +
+               xlab('Gencode v27 TSS annotations (liftOver to hg19)') +
+               ggplot2::theme(axis.title.y=element_blank(),
+                              axis.text.y=element_blank(),
+                              axis.ticks.y=element_blank(),
+                              axis.text.x=element_text(size=14))
+
+            ply = ggplotly(p, tooltip=c('label', 'label2', 'label3')) %>%
+               add_annotations(data=tss_info,
+                               x = ~xend,
+                               y = ~y,
+                               xref = "x", yref = "y",
+                               axref = "x", ayref = "y",
+                               text = "",
+                               showarrow = T,
+                               xanchor=~xanchor,
+                               arrowcolor= ~color,
+                               ax = ~xstart,
+                               ay = ~y) %>%
+               layout(showlegend=F, margin = list(l=45, r=8)) %>%
+               add_annotations(data=tile_dt, xanchor="left",xref='x',yref='y',
+                               text=~gene, x=~xstart, y=~as.numeric(gene),
+                               showarrow=F)
+            ply
+            # plot(JBrowseR("ViewHg19", location = loc))
+
+        }
+    })
+
+
     output$trianglePlot <- renderPlot({
         cutoff = ifelse(input$lib%in%c('HEPG2', 'K562'), input$cutoff42, input$cutoff23)
         start_time <- Sys.time()
@@ -494,14 +597,16 @@ shinyServer(function(input, output, session) {
         strand = strand(input_list$center)
         sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
 
-        p = plot_mat(input_list$mat_dt, input, cutoff, input_list$max_color) +
+        p = plot_mat(input_list$mat_dt, input, cutoff, input_list$max_color,
+                     vals$binsize) +
+          ggtitle(paste("location on", seqnames(vals$center))) +
           scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
         if (!is.na(vals$x)){
             p = p + geom_line(data=get_triangle(), aes(x=x,y=y,group=group),
                               inherit.aes=F)
         }
         gt <- ggplot_gtable(ggplot_build(p))
-        p + theme(legend.position="none")
+        p + ggplot2::theme(legend.position="none")
 
     })
 
@@ -520,7 +625,7 @@ shinyServer(function(input, output, session) {
                               inherit.aes=F)
           }
           gt <- ggplot_gtable(ggplot_build(p))
-          p + theme(legend.position="none")
+          p + ggplot2::theme(legend.position="none")
       }
 
     })
@@ -544,11 +649,17 @@ shinyServer(function(input, output, session) {
         p2 = ggplot(input_list$flat_dt, aes(x=x_rel, y=score, color=score > 0)) +
           geom_histogram(stat='identity') +
           scale_fill_manual(values=c(T='blue',F='red')) +
-          theme_bw() +
-          xlab('coefficients') +
-          theme(legend.position="none") +
+          ggplot2::theme_bw() +
+          xlab('position relative to point of interest') +
+          ylab('coefficients') +
+          ggplot2::theme(legend.position="none") +
           coord_cartesian(input$window) +
-          scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
+          scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0)) +
+          ggplot2::theme(axis.text.y=element_text(size=14),
+                         axis.title.x=element_text(size=14),
+                         axis.title.y=element_text(size=14),
+                         axis.text.x=element_text(size=14),
+                         plot.margin=margin(t=0,r=20,b=0,l=0))
         if (!is.na(vals$x)){
           p2 = p2 + geom_vline(xintercept=vals$start) +
             geom_vline(xintercept=vals$end)
@@ -564,15 +675,22 @@ shinyServer(function(input, output, session) {
             input_list = dataInput()
             strand = strand(input_list$center)
             sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
-
+            seqname = seqnames(input_list$center)
+            print(seqname)
             p2 = ggplot(input_list$flat_dt_rev, aes(x=x_rel, y=score, color=score > 0)) +
               geom_histogram(stat='identity') +
               scale_fill_manual(values=c(T='blue',F='red')) +
-              theme_bw() +
-              xlab('coefficients') +
-              theme(legend.position="none") +
+              ggplot2::theme_bw() +
+              xlab('position relative to point of interest') +
+              ylab('coefficients') +
+              ggplot2::theme(legend.position="none") +
               coord_cartesian(input$window) +
-              scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
+              scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0)) +
+              ggplot2::theme(axis.text.y=element_text(size=14),
+                             axis.title.x=element_text(size=14),
+                             axis.title.y=element_text(size=14),
+                             axis.text.x=element_text(size=14),
+                             plot.margin=margin(t=0,r=20,b=0,l=0))
             if (!is.na(vals$x)){
               p2 = p2 + geom_vline(xintercept=vals$start) +
                 geom_vline(xintercept=vals$end)
@@ -596,30 +714,44 @@ shinyServer(function(input, output, session) {
         }
     })
 
-    output$ROI_info <- renderText({
-        steps = paste("<b><h3>How to:</h3>",
-                      "<ol>",
-                      "  <li>Enter a specific locus in the 'position of interest' field using:</li></b>",
-                      "    <dd>- gene symbol (e.g. NUP214)",
-                      "    <dd>- ensembl/gencode gene id (e.g. ENSG00000126883[.16])",
-                      "    <dd>- ensemble/gencode transcript id (e.g. ENST00000359428[.5])",
-                      "    <dd>- position on the genome in the form of [chromosome]:[position]:[strand] (used as center)</br></br>",
-                      "  <b><li>Press Submit</li></br>")
-
-        # if (!is.na(vals$center)){
-
-        steps = paste(steps,
-                      "<li>Select a promoter fragment to predict its expression by:</li></b>",
-                      "  <dd>- Clicking on a point within the triangle plot</dd>",
-                      "  <dd>- Selecting a region in the coefficient plot <i>(click + drag)</i></dd>",
-                      "  <dd>- Filling in promoter fragment coordinates <i>(and pressing update)</i></dd></br><b>")
-        # }
-        # else {
-        #     steps = paste(steps,
-        #                   "<li>...</li>")
-        # }
-        HTML(paste0(steps, "</b>"))
+    output$text_warning <- renderText({
+        warning_vec = c()
+        prefix = '<h3><p style="color:red;"><b>&lt;&lt;WARNING:'
+        suffix = '&gt;&gt;</h3></b></p>'
+        if (!is.na(vals$center) & vals$uptodate == FALSE){
+            warning = paste(prefix, 'press submit to update configuration',
+                            suffix)
+            warning_vec = c(warning_vec, warning)
+        }
+        if (vals$fragment_warning == TRUE){
+            warning = paste(prefix, 'please select a promoter fragment within',
+                            'the region (or use the predict fragment tab)',
+                            suffix)
+            warning_vec = c(warning_vec, warning)
+        }
+        if (length(warning_vec) > 0){
+            HTML(paste(warning_vec, sep='</br>'))
+        }
     })
+
+    # output$ROI_info <- renderText({
+    #     steps = paste("<b><h3>How to:</h3>",
+    #                   "<ol>",
+    #                   "  <li>Enter a specific locus in the 'position of interest' field using:</li></b>",
+    #                   "    <dd>- gene symbol (e.g. NUP214)",
+    #                   "    <dd>- ensembl/gencode gene id (e.g. ENSG00000126883[.16])",
+    #                   "    <dd>- ensemble/gencode transcript id (e.g. ENST00000359428[.5])",
+    #                   "    <dd>- position on the genome in the form of [chromosome]:[position]:[strand] (used as center)</br></br>",
+    #                   "  <b><li>Press Submit</li></br>")
+    #
+    #     steps = paste(steps,
+    #                   "<li>Select a promoter fragment to predict its expression by:</li></b>",
+    #                   "  <dd>- Clicking on a point within the triangle plot</dd>",
+    #                   "  <dd>- Selecting a region in the coefficient plot <i>(click + drag)</i></dd>",
+    #                   "  <dd>- Filling in promoter fragment coordinates <i>(and pressing update)</i></dd></br><b>")
+    #
+    #     HTML(paste0(steps, "</b>"))
+    # })
 
     output$help_selection <- renderUI({
         if (!is.na(vals$center)){
@@ -657,18 +789,40 @@ shinyServer(function(input, output, session) {
         return(str_match(location, "(.*):([0-9]+)-([0-9]+)")[2:4])
     }
 
+    getPlotRegion <- function(){
+        xregion <- promoters(vals$center, upstream=input$window[1]*-1,
+                             downstream=input$window[2])
+        return(xregion)
+    }
+
     observeEvent(input$update, {
         hg19_input = parseLocation(input$hg19_selection)
         hg38_input = parseLocation(input$hg38_selection)
 
-        if (all(hg19_input==vals$region)){
+        if (any(is.na(vals$region))){
+            if (grepl('e.g.', hg19_input)[1]){
+                hg19_input = liftOver(hg38_input)
+            } else {
+                hg38_input = liftOver(hg19_input, toHg19=F)
+            }
+        } else if (all(hg19_input==vals$region)){
             hg19_input = liftOver(hg38_input)
         } else {
             hg38_input = liftOver(hg19_input, toHg19=F)
         }
-        updateVals(region=hg19_input)
-        updateSelection()
-        input_list = dataInput()
+
+        xregion <- getPlotRegion()
+
+
+        if (start(xregion) < hg19_input[2] & end(xregion) > hg19_input[3]){
+            updateVals(region=hg19_input)
+            updateSelection()
+
+            input_list = dataInput()
+
+        } else {
+            vals$fragment_warning = TRUE
+        }
 
 
         # vals$region = c(as.character(seqnames(center)),
