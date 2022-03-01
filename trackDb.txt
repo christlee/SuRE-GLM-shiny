@@ -2,7 +2,7 @@
 
 track SURE_elasticNet_allele_K562_plus
 type bigWig -1.12313 0.712607
-bigDataUrl ***REMOVED***jbrowse-hg19/data/SURE_elasticNet_allele_K562_plus.bw
+bigDataUrl http://bussemakerlab.org/papers/CISSECTOR/tracks-hg19/SURE_elasticNet_allele_K562_plus.bw
 shortLabel SuRE-GLM K562 plus
 longLabel SuRE-GLM model for K562 for plus orientation (FitzPatrick et al.).
 visibility full
@@ -12,7 +12,7 @@ autoScale on
 
 track SURE_elasticNet_allele_K562_minus
 type bigWig -0.405284 0.507411
-bigDataUrl ***REMOVED***jbrowse-hg19/data/SURE_elasticNet_allele_K562_minus.bw
+bigDataUrl http://bussemakerlab.org/papers/CISSECTOR/tracks-hg19/SURE_elasticNet_allele_K562_minus.bw
 shortLabel SuRE-GLM K562 minus
 longLabel SuRE-GLM model for K562 for minus orientation (FitzPatrick et al.).
 visibility full
@@ -22,7 +22,7 @@ autoScale on
 
 track SURE_elasticNet_allele_HepG2_plus
 type bigWig -0.447194 0.309833
-bigDataUrl ***REMOVED***jbrowse-hg19/data/SURE_elasticNet_allele_HEPG2_plus.bw
+bigDataUrl http://bussemakerlab.org/papers/CISSECTOR/tracks-hg19/SURE_elasticNet_allele_HEPG2_plus.bw
 shortLabel SuRE-GLM HepG2 plus
 longLabel SuRE-GLM model for HepG2 for plus orientation (FitzPatrick et al.).
 visibility full
@@ -32,7 +32,7 @@ autoScale on
 
 track SURE_elasticNet_allele_HepG2_minus
 type bigWig -0.204926 0.225944
-bigDataUrl ***REMOVED***jbrowse-hg19/data/SURE_elasticNet_allele_HEPG2_minus.bw
+bigDataUrl http://bussemakerlab.org/papers/CISSECTOR/tracks-hg19/SURE_elasticNet_allele_HEPG2_minus.bw
 shortLabel SuRE-GLM HepG2 minus
 longLabel SuRE-GLM model for HepG2 for minus orientation (FitzPatrick et al.).
 visibility full

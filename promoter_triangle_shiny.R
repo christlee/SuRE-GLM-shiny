@@ -9,26 +9,26 @@ library(cowplot)
 library(grid)
 library(stringr)
 
-gff_file = '***REMOVED***data/tracks/hg19/gencode.v27lift37.annotation.gff3.gz'
-peak_file  = c('K562' = '***REMOVED***data/tracks/hg19/SuRE_elasticNet_peaks_K562.bed',
-               'HEPG2' = '***REMOVED***data/tracks/hg19/SuRE_elasticNet_peaks_K562.bed')
-txdb_file = '***REMOVED***projects/SuRE/SuRE_K562/txdb.gencode.v27lift37.sqlite'
+gff_file = 'data/tracks/hg19/gencode.v27lift37.annotation.gff3.gz'
+peak_file  = c('K562' = 'data/tracks/hg19/SuRE_elasticNet_peaks_K562.bed',
+               'HEPG2' = 'data/tracks/hg19/SuRE_elasticNet_peaks_K562.bed')
+txdb_file = 'projects/SuRE/SuRE_K562/txdb.gencode.v27lift37.sqlite'
 
-tss_file = '***REMOVED***projects/SuRE/SuRE_K562/tss_matrix.txt.gz'
-lookup_matrix = '***REMOVED***projects/SuRE/SuRE_K562/lookup_matrix.txt.gz'
+tss_file = 'projects/SuRE/SuRE_K562/tss_matrix.txt.gz'
+lookup_matrix = 'projects/SuRE/SuRE_K562/lookup_matrix.txt.gz'
 
-offset_coefs = readRDS("***REMOVED***projects/SuRE/SuRE_K562/bins_vince/optimalFitOffsetCoefficients_K562_spatial.rds")
+offset_coefs = readRDS("projects/SuRE/SuRE_K562/bins_vince/optimalFitOffsetCoefficients_K562_spatial.rds")
 chrom_vec = paste0('chr', c(1:22, 'X', 'Y'))
 
-jbrowse = "***REMOVED***jbrowse-hg19/index.html?tracklist=0&nav=0&overview=0"
+jbrowse = "jbrowse-hg19/index.html?tracklist=0&nav=0&overview=0"
 jtrack_start = paste("tracks=gencode.v27lift37",
                      "GSM1480321_K562_GROcap_wTAP_minus",
                      "GSM1480321_K562_GROcap_wTAP_plus",
                      "TTseq_K562_rep2_plus_hg19",
                      "TTseq_K562_rep2_minus_hg19", sep='%2C')
 
-hg38ToHg19 = "***REMOVED***data/hg38ToHg19.over.chain"
-hg19ToHg38 = "***REMOVED***data/hg19ToHg38.over.chain"
+hg38ToHg19 = "data/hg38ToHg19.over.chain"
+hg19ToHg38 = "data/hg19ToHg38.over.chain"
 
 
 tss_gr = makeGRangesFromDataFrame(fread(cmd=paste("zcat", tss_file)))
@@ -80,11 +80,11 @@ init <- function(gff_file, txdb, rd_file, chrom_vec){
     regions <- resize(tss_gr, 501, fix = 'center')
 
 
-    suppressWarnings(glm_plus <-import("***REMOVED***data/tracks/hg19/SURE_elasticNet_allele_K562_plus.bw",
+    suppressWarnings(glm_plus <-import("data/tracks/hg19/SURE_elasticNet_allele_K562_plus.bw",
                                        selection = BigWigSelection(regions[strand(regions) == "+"]),
                                        as = "NumericList"))
 
-    suppressWarnings(glm_minus <-import("***REMOVED***data/tracks/hg19/SURE_elasticNet_allele_K562_minus.bw",
+    suppressWarnings(glm_minus <-import("data/tracks/hg19/SURE_elasticNet_allele_K562_minus.bw",
                                         selection = BigWigSelection(regions[strand(regions) == "-"]),
                                         as = "NumericList"))
 
@@ -152,7 +152,7 @@ get_center <- function(text_input, lookup_list, tss_gr){
 #
 triangle_dt <- function(center, upstream = 1000, downstream=1000,
                         cutoff = 2000, binsize=10, offset=0,
-                        path = "***REMOVED***data/tracks/hg19/",
+                        path = "data/tracks/hg19/",
                         filePart = "SURE_elasticNet_allele_K562_",
                         rev_comp = F) {
     start_time <- Sys.time()
@@ -410,9 +410,9 @@ server <- function(input, output, session) {
   # 1. It is "reactive" and therefore should be automatically
   #    re-executed when inputs (input$bins) change
   # 2. Its output type is a plot
-    gff_file = '***REMOVED***data/tracks/hg19/gencode.v27lift37.annotation.gff3.gz'
-    txdb_file = '***REMOVED***projects/SuRE/SuRE_K562/txdb.gencode.v27lift37.sqlite'
-    rd_file = '***REMOVED***projects/SuRE/SuRE_K562/promoter_triangle_input.RData'
+    gff_file = 'data/tracks/hg19/gencode.v27lift37.annotation.gff3.gz'
+    txdb_file = 'projects/SuRE/SuRE_K562/txdb.gencode.v27lift37.sqlite'
+    rd_file = 'projects/SuRE/SuRE_K562/promoter_triangle_input.RData'
     chrom_vec = paste0('chr', c(1:22, 'X', 'Y'))
 
 

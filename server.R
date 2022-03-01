@@ -20,15 +20,6 @@ lookup_matrix = 'data/lookup_matrix.txt.gz'
 
 offset_coefs = readRDS("data/optimalFitOffsetCoefficients_K562_spatial.rds")
 
-jbrowse = "***REMOVED***jbrowse-hg19/index.html?tracklist=0&nav=0&overview=0"
-jtrack_start = paste("tracks=gencode.v27lift37",
-                     "GSM1480321_K562_GROcap_wTAP_minus",
-                     "GSM1480321_K562_GROcap_wTAP_plus",
-                     "TTseq_K562_rep2_plus_hg19",
-                     "TTseq_K562_rep2_minus_hg19", sep='%2C')
-
-washu = "https://raw.githubusercontent.com/christlee/SuRE-GLM-shiny/main/embedded_washu.html?"
-
 
 ucsc = "https://genome-euro.ucsc.edu/cgi-bin/hgTracks?"
 
