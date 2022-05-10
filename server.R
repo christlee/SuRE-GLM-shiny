@@ -1,5 +1,4 @@
 library(rtracklayer)
-library(JBrowseR)
 library(data.table)
 library(shiny)
 library(AnnotationDbi)
@@ -186,7 +185,7 @@ triangle_dt <- function(center, upstream = 1000, downstream=1000,
     #
     ##TODO: make sure the spacing up and downstream don't get considered in the
     ##      calculation
-    if (strand=='plus'){
+    if ((strand=='plus' & rev_comp==F) | (strand=='minus' & rev_comp==T)){
         dt = data.table(x=x_mat, y=y_mat, score=mat[!is.na(mat)],
                         x_rel = (x_mat - center_pos))
         mat_dt = dt[x_rel <= downstream & x_rel >= -upstream, ]
@@ -420,8 +419,7 @@ shinyServer(function(input, output, session) {
             x = (start + end) / 2
             y = end - start
         } else{
-            print(x)
-            print(y)
+
             start = x - round(y/2)
             end = x + round(y/2)
         }
@@ -469,9 +467,17 @@ shinyServer(function(input, output, session) {
     # })
 
     observeEvent(input$plot_brush, {
+
         ## weird translation necessary because grid.draw messes up coordinates
-        xmin = input$plot_brush$xmin * 0.98056 - 0.01206
-        xmax = input$plot_brush$xmax * 0.98056 - 0.01206
+        ## had to print out all the coordinates of the grid lines
+        ## and run a linear model.
+        # dt = data.frame(x=c(0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1),
+        #                 y=c(0.02180469, 0.1460047, 0.2783047, 0.3930547,
+        #                     0.5159047, 0.6401047, 0.7643047, 0.8885047, 1.011355))
+        # lm(dt)
+
+        xmin = input$plot_brush$xmin * 1.01279 - 0.02432
+        xmax = input$plot_brush$xmax * 1.01279 - 0.02432
 
         #
         # size = input$window[1] + input$window[2]
@@ -482,12 +488,8 @@ shinyServer(function(input, output, session) {
         input_list = dataInput()
 
         x_size = -input$window[1] + input$window[2]
-        print(x_size)
-        print(xmin)
-        print(xmax)
-        print(x_size*xmin)
+
         x_start = xmin * x_size + input$window[1]
-        print(x_start)
         x_end = xmax * x_size + input$window[1]
 
         updateVals(start=round(x_start), end=round(x_end))
@@ -501,7 +503,6 @@ shinyServer(function(input, output, session) {
         strand_color = c('+'='#228833', '-'='#EE6677')
 
         input_list = dataInput()
-
         if (!is.na(vals$center)){
             xregion <- getPlotRegion()
             tss_o = subjectHits(findOverlaps(xregion, tss_gr, ignore.strand=T))
@@ -519,7 +520,7 @@ shinyServer(function(input, output, session) {
             tss_info[, color:=strand_color[strand]]
             tss_info[, xanchor:=ifelse(strand==strand(vals$center),
                                        'right', 'left')]
-            print(tss_info)
+
             tip = copy(tss_info)
             bottom = copy(tss_info)
 
@@ -527,14 +528,14 @@ shinyServer(function(input, output, session) {
 
             top = rbind(tip, tss_info)
             down = rbind(bottom, tss_info)
-            print(levels(tss_info$gene))
+
             tile_dt = data.table(gene=unique(tss_info$gene),
                                  xstart=input$window[1],
                                  xend=input$window[2],
                                  ystart=as.numeric(unique(tss_info$gene)) - 0.5,
                                  yend=as.numeric(unique(tss_info$gene)) + 0.5)
             grey_list = rep(c("grey65", "grey85"),10)
-            print(tile_dt)
+
             p = ggplot(top, aes(y=y, x=xstart, colour = strand,
                                 group=tx_name, label=gene, label2=gene_id,
                                 label3=tx_name))  +
@@ -547,7 +548,7 @@ shinyServer(function(input, output, session) {
                geom_line() +
                geom_line(data=down) +
                scale_color_manual(values=strand_color) +
-               coord_cartesian(input$window, expand=c(0,0)) +
+               ggplot2::coord_cartesian(input$window, expand=0) +
                theme_bw() +
                xlab('Gencode v27 TSS annotations (liftOver to hg19)') +
                ggplot2::theme(axis.title.y=element_blank(),
@@ -602,14 +603,15 @@ shinyServer(function(input, output, session) {
     })
 
     output$trianglePlot_rev <- renderPlot({
+        input_list = dataInput()
         if (vals$show_minus==TRUE){
           cutoff = ifelse(input$lib%in%c('HEPG2', 'K562'), input$cutoff42, input$cutoff23)
 
-          input_list = dataInput()
           strand = strand(input_list$center)
           sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
 
-          p = plot_mat(input_list$mat_dt_rev, input, cutoff, input_list$max_color) +
+          p = plot_mat(input_list$mat_dt_rev, input, cutoff, input_list$max_color,
+                       vals$binsize) +
             scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
           if (!is.na(vals$x)){
             p = p + geom_line(data=get_triangle(), aes(x=x,y=y,group=group),
@@ -662,12 +664,11 @@ shinyServer(function(input, output, session) {
 
 
     output$flatPlot_rev <- renderPlot({
+        input_list = dataInput()
         if (vals$show_minus==TRUE){
-            input_list = dataInput()
             strand = strand(input_list$center)
             sec = start(input_list$center) * ifelse(strand=='+', 1, -1)
             seqname = seqnames(input_list$center)
-            print(seqname)
             p2 = ggplot(input_list$flat_dt_rev, aes(x=x_rel, y=score, color=score > 0)) +
               geom_histogram(stat='identity') +
               scale_fill_manual(values=c(T='blue',F='red')) +
@@ -862,11 +863,9 @@ shinyServer(function(input, output, session) {
         frag_dt = fread(input$text_fragments, stringsAsFactors=F,
                         fill=T, header=F, sep='\t',
                         sep2=' ')
-        print(frag_dt)
         colnames(frag_dt) = c('seqnames', 'start', 'end',
                               'name', 'color', 'strand')[1:ncol(frag_dt)]
         frag_dt[,strand:=ifelse(strand%in%c('+','-'), strand, "*")]
-        print(frag_dt)
         hg19_dt = copy(frag_dt)
         if (input$hg_version=='hg38'){
            suppressWarnings(hg19_dt[, c('seqnames', 'start', 'end') :=

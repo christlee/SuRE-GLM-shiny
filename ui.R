@@ -87,6 +87,11 @@ shinyUI(
               plotOutput(outputId = "flatPlot", brush="plot_brush", width=800, height=200),
 
               plotlyOutput(outputId="frame", width=810, height='100'),
+              
+              plotOutput(outputId = "trianglePlot_rev", click="plot_click" , width=800, height=300),
+              # plotOutput(outputId = "peakPlot_rev", click="plot_click_peak", width=800, height=100),
+              plotOutput(outputId = "flatPlot_rev", brush="plot_brush", width=800, height=200),
+
 
               fluidRow(column(6, uiOutput("hg19_sel")),
                        column(4, div(tableOutput('selection'), style="font-size:150%"),
@@ -95,11 +100,6 @@ shinyUI(
 
               uiOutput("text_minus"),
 
-              plotOutput(outputId = "trianglePlot_rev", click="plot_click"),
-              # , width=750, height=300),
-              # plotOutput(outputId = "peakPlot_rev", click="plot_click_peak", width=800, height=100),
-              plotOutput(outputId = "flatPlot_rev", brush="plot_brush")
-              # , width=750, height=200),
           ),
     column(3,
     ))),
