@@ -16,7 +16,7 @@ shinyUI(
                            '    <dd>- gene symbol (e.g. NUP214)',
                            '    <dd>- ensembl/gencode gene id (e.g. ENSG00000126883[.16])',
                            '    <dd>- ensemble/gencode transcript id (e.g. ENST00000359428[.5])',
-                           '    <dd>- position on the genome in the form of [chromosome]:[position]:[strand] (used as center)</br></br>',
+                           '    <dd>- position on the genome (hg19) in the form of [chromosome]:[position]:[strand] (used as center)</br></br>',
                            '  <b><li>Press Submit</li></br>',
                            '  <li>Select a promoter fragment to predict its expression by:</li></b>',
                            '    <dd>- Clicking on a point within the triangle plot</dd>',
@@ -67,8 +67,9 @@ shinyUI(
               checkboxInput("show_minus", strong("show anti-sense orientation"),
                             value=FALSE,width="100%"),
           ),
-          helpText(paste0("Use either gene symbol, ensembl ID (using gencode v27)\n",
-                          "or [chromosome]:[position]:[strand].")),
+          helpText("Use either gene symbol, ensembl ID (using gencode v27) or",
+                   br(),
+                   "[chromosome]:[position]:[strand] (hg19)."),
           textInput("ROI", h4("Position of interest"),
                     value = "e.g. NUP214, ENSG00000126883[.16], chr9:134000948:+"),
           actionButton("go", "Submit")
@@ -87,7 +88,7 @@ shinyUI(
               plotOutput(outputId = "flatPlot", brush="plot_brush", width=800, height=200),
 
               plotlyOutput(outputId="frame", width=810, height='100'),
-              
+
               plotOutput(outputId = "trianglePlot_rev", click="plot_click" , width=800, height=300),
               # plotOutput(outputId = "peakPlot_rev", click="plot_click_peak", width=800, height=100),
               plotOutput(outputId = "flatPlot_rev", brush="plot_brush", width=800, height=200),
