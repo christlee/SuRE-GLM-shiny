@@ -591,7 +591,7 @@ shinyServer(function(input, output, session) {
 
         p = plot_mat(input_list$mat_dt, input, cutoff, input_list$max_color,
                      vals$binsize) +
-          ggtitle(paste("location on", seqnames(vals$center))) +
+          ggtitle(paste("location on", seqnames(vals$center), '(hg19)')) +
           scale_x_continuous(sec.axis=~abs(. + sec), expand=c(0,0))
         if (!is.na(vals$x)){
             p = p + geom_line(data=get_triangle(), aes(x=x,y=y,group=group),
