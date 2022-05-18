@@ -45,18 +45,9 @@ shinyUI(
                           value=FALSE,width="100%"),
             conditionalPanel(condition = "input.advanced == 1",
               # Input: Slider for the number of bins ----
-              conditionalPanel(
-              condition = "input.lib == 'HT1080'",
-              sliderInput("cutoff23",
-                    label = "Promoter sizes to consider:",
-                    min = 1, max = 2000, value = 1500),
-              ),
-              conditionalPanel(
-              condition = "input.lib %in% c('K562', 'HEPG2')",
               sliderInput("cutoff42",
                     label = "Promoter sizes to consider:",
-                    min = 1, max = 600, value = 400)
-              ),
+                    min = 1, max = 600, value = 400),
               # Input: Slider for the number of bins ----
               sliderInput(inputId = "window",
               label = "region up and downstream from POI",
