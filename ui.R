@@ -2,6 +2,7 @@ library(plotly)
 
 shinyUI(
   navbarPage("SuRE GLM",
+    tags$head(tags$script(src="https://cdn.plot.ly/plotly-latest.min.js")),
     tabPanel("How-To",
         sidebarLayout(
             sidebarPanel(
