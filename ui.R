@@ -81,17 +81,18 @@ shinyUI(
 
               plotlyOutput(outputId="frame", width=810, height='100'),
 
-              plotOutput(outputId = "trianglePlot_rev", click="plot_click" , width=800, height=300),
-              # plotOutput(outputId = "peakPlot_rev", click="plot_click_peak", width=800, height=100),
-              plotOutput(outputId = "flatPlot_rev", brush="plot_brush", width=800, height=200),
-
+              conditionalPanel(condition = "input.show_minus == 1",
+                  uiOutput("text_minus"),
+                  plotOutput(outputId = "trianglePlot_rev", click="plot_click" , width=800, height=300),
+                  # plotOutput(outputId = "peakPlot_rev", click="plot_click_peak", width=800, height=100),
+                  plotOutput(outputId = "flatPlot_rev", brush="plot_brush", width=800, height=200),
+              ),
 
               fluidRow(column(6, uiOutput("hg19_sel")),
                        column(4, div(tableOutput('selection'), style="font-size:150%"),
                                  uiOutput("help_selection"))),
 
 
-              uiOutput("text_minus"),
 
           ),
     column(3,
