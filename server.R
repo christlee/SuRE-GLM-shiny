@@ -320,6 +320,7 @@ shinyServer(function(input, output, session) {
         fragment_warning = FALSE
     )
 
+
     observeEvent(input$window, {
         vals$uptodate = FALSE
     })
@@ -327,6 +328,11 @@ shinyServer(function(input, output, session) {
     observeEvent(input$lib, {
         vals$uptodate = FALSE
     })
+
+    observeEvent(input$show_minus, {
+        vals$uptodate = FALSE
+    })
+
 
     dataInput <- eventReactive(input$go, {
         vals$uptodate = TRUE
