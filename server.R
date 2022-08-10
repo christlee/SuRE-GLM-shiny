@@ -98,6 +98,25 @@ get_center <- function(text_input, lookup_list, tss_gr){
   return(center)
 }
 
+
+get_relative_to <- function(text_input){
+
+  if (grepl('chr[0-9XY]+:[0-9]+:[-+]$', text_input)){
+    split_vec = strsplit(text_input, ':')[[1]]
+    if (split_vec[3]=='-'){
+        rel_to = 'the minus strand'
+    } else {
+        rel_to = 'the plus strand'
+    }
+  } else if (grepl('chr[0-9XY]+:[0-9]+$', text_input)){
+      rel_to = 'the plus strand'
+  } else {
+      rel_to = text_input
+  }
+
+  return(rel_to)
+}
+
 #
 triangle_dt <- function(center, upstream = 1000, downstream=1000,
                         cutoff = 2000, binsize=10, offset=0,
@@ -320,6 +339,9 @@ shinyServer(function(input, output, session) {
         fragment_warning = FALSE
     )
 
+    observeEvent(input$cutoff42, {
+        vals$uptodate = FALSE
+    })
 
     observeEvent(input$window, {
         vals$uptodate = FALSE
@@ -512,74 +534,75 @@ shinyServer(function(input, output, session) {
         if (!is.na(vals$center)){
             xregion <- getPlotRegion()
             tss_o = subjectHits(findOverlaps(xregion, tss_gr, ignore.strand=T))
-            tss_info = as.data.table(tss_gr[tss_o])
-            tss_info[, gene := factor(unlist(ensembl_dt[gsub('[.].*', '', gene_id),
-                                                        'gene_name']))]
-            tss_info[, sense := strand()]
-            tss_info[, xstart := start(vals$center) - start]
-            tss_info[, xend := ifelse(strand==strand(vals$center),
-                                      xstart + 100, xstart-100)]
-            tss_info[, y:=jitter(as.numeric(gene), amount=0.4)]
+            if (length(tss_o)>0){
+                tss_info = as.data.table(tss_gr[tss_o])
+                tss_info[, gene := factor(unlist(ensembl_dt[gsub('[.].*', '', gene_id),
+                                                            'gene_name']))]
+                tss_info[, sense := strand()]
+                tss_info[, xstart := start(vals$center) - start]
+                tss_info[, xend := ifelse(strand==strand(vals$center),
+                                          xstart + 100, xstart-100)]
+                tss_info[, y:=jitter(as.numeric(gene), amount=0.4)]
 
-            tss_info[, y:=y[order(y, decreasing=T)],by=gene]
+                tss_info[, y:=y[order(y, decreasing=T)],by=gene]
 
-            tss_info[, color:=strand_color[strand]]
-            tss_info[, xanchor:=ifelse(strand==strand(vals$center),
-                                       'right', 'left')]
+                tss_info[, color:=strand_color[strand]]
+                tss_info[, xanchor:=ifelse(strand==strand(vals$center),
+                                           'right', 'left')]
 
-            tip = copy(tss_info)
-            bottom = copy(tss_info)
+                tip = copy(tss_info)
+                bottom = copy(tss_info)
 
-            bottom[, y := 0]
+                bottom[, y := 0]
 
-            top = rbind(tip, tss_info)
-            down = rbind(bottom, tss_info)
+                top = rbind(tip, tss_info)
+                down = rbind(bottom, tss_info)
 
-            tile_dt = data.table(gene=unique(tss_info$gene),
-                                 xstart=input$window[1],
-                                 xend=input$window[2],
-                                 ystart=as.numeric(unique(tss_info$gene)) - 0.5,
-                                 yend=as.numeric(unique(tss_info$gene)) + 0.5)
-            grey_list = rep(c("grey65", "grey85"),10)
+                tile_dt = data.table(gene=unique(tss_info$gene),
+                                     xstart=input$window[1],
+                                     xend=input$window[2],
+                                     ystart=as.numeric(unique(tss_info$gene)) - 0.5,
+                                     yend=as.numeric(unique(tss_info$gene)) + 0.5)
+                grey_list = rep(c("grey65", "grey85"),10)
 
-            p = ggplot(top, aes(y=y, x=xstart, colour = strand,
-                                group=tx_name, label=gene, label2=gene_id,
-                                label3=tx_name))  +
-               geom_rect(data=tile_dt, inherit.aes=F,
-                         aes(xmin=xstart, xmax=xend, ymin=ystart, ymax=yend,
-                             fill=gene, alpha=0.3)) +
-               # geom_text(data=tile_dt, inherit.aes=F,
-               #           aes(x=xstart, y=as.numeric(label), label=label)) +
-               scale_fill_manual(values=grey_list) +
-               geom_line() +
-               geom_line(data=down) +
-               scale_color_manual(values=strand_color) +
-               ggplot2::coord_cartesian(input$window, expand=0) +
-               theme_bw() +
-               xlab('Gencode v27 TSS annotations (liftOver to hg19)') +
-               ggplot2::theme(axis.title.y=element_blank(),
-                              axis.text.y=element_blank(),
-                              axis.ticks.y=element_blank(),
-                              axis.text.x=element_text(size=14))
-
-            ply = ggplotly(p, tooltip=c('label', 'label2', 'label3')) %>%
-               add_annotations(data=tss_info,
-                               x = ~xend,
-                               y = ~y,
-                               xref = "x", yref = "y",
-                               axref = "x", ayref = "y",
-                               text = "",
-                               showarrow = T,
-                               xanchor=~xanchor,
-                               arrowcolor= ~color,
-                               ax = ~xstart,
-                               ay = ~y) %>%
-               layout(showlegend=F, margin = list(l=45, r=8)) %>%
-               add_annotations(data=tile_dt, xanchor="left",xref='x',yref='y',
-                               text=~gene, x=~xstart, y=~as.numeric(gene),
-                               showarrow=F)
-            ply
-            # plot(JBrowseR("ViewHg19", location = loc))
+                p = ggplot(top, aes(y=y, x=xstart, colour = strand,
+                                    group=tx_name, label=gene, label2=gene_id,
+                                    label3=tx_name))  +
+                   geom_rect(data=tile_dt, inherit.aes=F,
+                             aes(xmin=xstart, xmax=xend, ymin=ystart, ymax=yend,
+                                 fill=gene, alpha=0.3)) +
+                   # geom_text(data=tile_dt, inherit.aes=F,
+                   #           aes(x=xstart, y=as.numeric(label), label=label)) +
+                   scale_fill_manual(values=grey_list) +
+                   geom_line() +
+                   geom_line(data=down) +
+                   scale_color_manual(values=strand_color) +
+                   ggplot2::coord_cartesian(input$window, expand=0) +
+                   theme_bw() +
+                   xlab('Gencode v27 TSS annotations (liftOver to hg19)') +
+                   ggplot2::theme(axis.title.y=element_blank(),
+                                  axis.text.y=element_blank(),
+                                  axis.ticks.y=element_blank(),
+                                  axis.text.x=element_text(size=14))
+                ply = ggplotly(p, tooltip=c('label', 'label2', 'label3')) %>%
+                   add_annotations(data=tss_info,
+                                   x = ~xend,
+                                   y = ~y,
+                                   xref = "x", yref = "y",
+                                   axref = "x", ayref = "y",
+                                   text = "",
+                                   showarrow = T,
+                                   xanchor=~xanchor,
+                                   arrowcolor= ~color,
+                                   ax = ~xstart,
+                                   ay = ~y) %>%
+                   layout(showlegend=F, margin = list(l=45, r=8)) %>%
+                   add_annotations(data=tile_dt, xanchor="left",xref='x',yref='y',
+                                   text=~gene, x=~xstart, y=~as.numeric(gene),
+                                   showarrow=F)
+                ply
+                # plot(JBrowseR("ViewHg19", location = loc))
+            }
 
         }
     })
@@ -702,25 +725,43 @@ shinyServer(function(input, output, session) {
 
     output$text_minus <- renderText({
         if (vals$show_minus==TRUE){
-            HTML("<h3>anti-sense orientation</h3>")
+            prefix = "<h4><b>anti-sense orientation relative to "
+            suffix = "</b></h4>"
+
+            if (!is.na(vals$center)){
+                HTML(paste0(prefix, get_relative_to(input$ROI), suffix))
+            }
         }
     })
 
     output$text_plus <- renderText({
+        prefix = "<h4><b>sense orientation relative to "
+        suffix = "</b></h4>"
+
         if (!is.na(vals$center)){
-            HTML("<h3>sense orientation</h3>")
+            HTML(paste0(prefix, get_relative_to(input$ROI), suffix))
         }
     })
+
+    output$text_reminder <- renderText({
+        warning_vec = c()
+        prefix = '<p style="color:red;"><b>'
+        suffix = '</b></p>'
+        if (!is.na(vals$center) & vals$uptodate == FALSE){
+            warning = paste(prefix, 'please press submit to update configuration',
+                            suffix)
+            warning_vec = c(warning_vec, warning)
+        }
+        if (length(warning_vec) > 0){
+            HTML(paste(warning_vec, sep='</br>'))
+        }
+    })
+
 
     output$text_warning <- renderText({
         warning_vec = c()
         prefix = '<h3><p style="color:red;"><b>&lt;&lt;WARNING:'
         suffix = '&gt;&gt;</h3></b></p>'
-        if (!is.na(vals$center) & vals$uptodate == FALSE){
-            warning = paste(prefix, 'press submit to update configuration',
-                            suffix)
-            warning_vec = c(warning_vec, warning)
-        }
         if (vals$fragment_warning == TRUE){
             warning = paste(prefix, 'please select a promoter fragment within',
                             'the region (or use the predict fragment tab)',
@@ -865,13 +906,15 @@ shinyServer(function(input, output, session) {
 
     fragmentInput <- eventReactive(input$go_fragments, {
         width_offset = offset_coefs$width[[1]]
+        text_input = gsub('\t', ' ', paste0(input$text_fragments, '\n'))
+        frag_dt = fread(text=text_input,
+                        stringsAsFactors=F, fill=T, header=F, sep=' ')
+        print(frag_dt)
 
-        frag_dt = fread(input$text_fragments, stringsAsFactors=F,
-                        fill=T, header=F, sep='\t',
-                        sep2=' ')
         colnames(frag_dt) = c('seqnames', 'start', 'end',
                               'name', 'color', 'strand')[1:ncol(frag_dt)]
         frag_dt[,strand:=ifelse(strand%in%c('+','-'), strand, "*")]
+        print(frag_dt)
         hg19_dt = copy(frag_dt)
         if (input$hg_version=='hg38'){
            suppressWarnings(hg19_dt[, c('seqnames', 'start', 'end') :=
@@ -918,7 +961,7 @@ shinyServer(function(input, output, session) {
           score_dt = score_dt[,use_strand(.SD, strand), by="strand"]
         }
         result = cbind(frag_dt, score_dt[,-"strand"])
-
+        print(result)
         return(result)
     })
 

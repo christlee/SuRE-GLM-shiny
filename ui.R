@@ -32,6 +32,7 @@ shinyUI(
             )
 
         )),
+        # chr7 5576428 5576628 . . +
     tabPanel("Inspect promoter",
       # tags$style("#hg19_selection {font-size:12px;}"),
       # tags$style("#hg38_selection {font-size:12px;}"),
@@ -59,6 +60,7 @@ shinyUI(
               checkboxInput("show_minus", strong("show anti-sense orientation"),
                             value=FALSE,width="100%"),
           ),
+          uiOutput("text_reminder"),
           helpText("Use either gene symbol, ensembl ID (using gencode v27) or",
                    br(),
                    "[chromosome]:[position]:[strand] (hg19)."),
